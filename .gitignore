@@ -1,0 +1,30 @@
+node_modules/
+*.log
+logs/
+demo/state.json
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Holiday runtime data (generated smoke-test / server state, e.g. RocksDB LOG)
+.baas-smoke/
+
+# LLM/agent local notes — machine-specific, not part of the project
+local_compilation_discovery.md
+
+# Claude Code local config (machine-specific paths / permissions); skills are kept
+.claude/settings.json
+.claude/settings.local.json
+
+# C/C++ core build artifacts
+build/
+*.dll
+*.so
+*.dylib
+*.o
+*.obj
+*.a

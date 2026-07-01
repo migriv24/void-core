@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voidcore"
+version = "0.1.0"
+description = "Void Core — a host-agnostic engine (C core + Python binding + holidays)."
+license = "MIT"
+requires-python = ">=3.9"
+# No required deps: the core needs only the bundled libvoidcore.dll. Holidays pull
+# their own deps when used (e.g. meshdb -> neo4j); install those per app as needed.
+dependencies = []
+
+[project.optional-dependencies]
+meshdb = ["neo4j>=5"]
+
+[tool.setuptools]
+# Only the thin re-export package is installed; it loads the binding + holidays from
+# the live repo (editable install), which is what makes updates transfer over.
+packages = ["voidcore"]
