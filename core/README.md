@@ -1,15 +1,17 @@
-# Void Core — C core (v0.1.0)
+# Void Core — C core (v0.2.0)
 
-The new **C implementation** of Void Core, exposing a pure **C ABI** so any
+The **C implementation** of Void Core, exposing a pure **C ABI** so any
 language can bind to it. This supersedes the JS prototype in `../src/` (kept as a
-conformance oracle). Governing docs: `../SPEC.md` (contract), `../notes/` (design).
+conformance oracle). Governing docs: `../SPEC.md` (contract), `../okf/design/` (design).
 
-> **Status: the core is substantially complete.** All five Void Core parts (data
-> model, dispatcher, tag system, Voidscript, logging+adapter seam) are implemented
-> and tested from both C and Python. Built & verified 2026-06-14 on the toolchain
-> in `../local_compilation_discovery.md`. The notable deferrals are research-track,
-> not gaps: the interaction-net **rule reducer** (rules are stored, not executed,
-> on purpose) and the advanced Voidscript constructs (def/try/include). See below.
+> **Status: the core is substantially complete** (v0.2.0, 2026-07-03; first built
+> 2026-06-14 on the toolchain in `../local_compilation_discovery.md`). All five
+> Void Core parts (data model, dispatcher, tag system, Voidscript,
+> logging+adapter seam) are implemented and tested from both C and Python;
+> `../conformance/` (SPEC §11) passes 8/8. The notable deferrals are deliberate,
+> not gaps: the interaction-net **rule reducer** lives at the Python seam
+> (`../reduce/`), and the advanced Voidscript constructs (def/try/include)
+> remain oracle-only. See below.
 
 ## Design decisions baked in
 - **cJSON is the canonical in-memory model.** The state document (SPEC §2) *is* the
@@ -69,8 +71,11 @@ char       *vc_export_state(VC_Manager *);        // -> state document JSON
 void        vc_free_str(char *);                  // free returned strings
 void        vc_destroy(VC_Manager *);
 const char *vc_version(void);
+int         vc_tag_match(const char *expr, const char *tags_json); // SPEC §5, stateless
 ```
-Any returned `char*` is freed with `vc_free_str`.
+Any returned `char*` is freed with `vc_free_str`. A `VC_Manager` is **not
+thread-safe** — serialize calls per manager (SPEC §6); stateless functions
+(`vc_tag_match`, `vc_alloc_str`, `vc_free_str`, `vc_version`) are safe anywhere.
 
 ## Verbs implemented
 Read: `version help glyphs mantles where rune(ls) ls find describe get cat tree
@@ -78,9 +83,13 @@ validate axes status diff history log bindings links related export`
 Mutate: `mantle new` · `use` · `rune new|rm|rename|move|dup` · `set` · `setjson` · `facet` · `tag` ·
 `link` · `unlink` · `relate` · `unrelate` · `rule add|ls|rm|clear` · `undo` · `redo` · `revert` ·
 `batch` · `bind` · `unbind`
-Lifecycle / seam: `save` · `deploy` · `build` · `preview` (route through the host
-effect handler) · `log`
+Lifecycle / seam: `save` · `deploy` · `build` · `preview` · `effect <op> [args...]`
+(all route through the host effect handler) · `log`
 Scripts: `script run|ls|show|new|set`
+POSIX aliases (SPEC §7.1, argument-aware desugarings in `args.c`): `cd`→`use` ·
+`pwd`→`where` · `rm <ref>`→`rune rm <ref>` · `mv`→`rune rename` · `cp`→`rune dup` ·
+`mkdir`→`mantle new` · `grep`→`find` · `man`/`?`→`help` · `quit`→`exit` ·
+`dump`→`export`. Root-`ls` (no active mantle) lists mantles; `cd /` deactivates.
 
 Any verb taking `<ref>` also accepts `@<filter>` to target a *group* of runes
 (quote it if it contains spaces): `set "@chapter:2 AND NOT ralsei" reviewed yes`.
@@ -96,9 +105,11 @@ quotes so arbitrary text/JSON (apostrophes, `\c` codes) passes safely. *(Both ad
 VC_Manager *vc_create(const char *state_json);
 char       *vc_dispatch(VC_Manager *, const char *command);
 char       *vc_export_state(VC_Manager *);
+char       *vc_alloc_str(const char *s);   // for host effect handlers' returns (§9)
 void        vc_free_str(char *);
 void        vc_destroy(VC_Manager *);
 const char *vc_version(void);
+int         vc_tag_match(const char *expr, const char *tags_json); // §5 grammar, stateless
 int         vc_register_glyph(VC_Manager *, const char *glyph_json);
 void        vc_set_log_sink(VC_Manager *, VC_LogFn, void *user);       // §9
 void        vc_set_effect_handler(VC_Manager *, VC_EffectFn, void *user); // §9 holiday
@@ -125,17 +136,19 @@ for the real I/O (write files, deploy, build, preview).
   `save/deploy/build/preview` route through `vc_set_effect_handler`.
 
 ## Deliberately deferred (research-track, not gaps)
-- **The interaction-net rule reducer.** Rules and the weighted tag graph are
-  *stored and inspected*, not *executed* — the "modeled as a net now, reduced
-  later" discipline (`../notes/concept-brainstorm.md`,
-  `../notes/interaction-nets.md`). The math (commutative-monoid effects, no
-  vicious cycles) is decided; the executor is future work.
+- **The interaction-net rule reducer.** Not in the C library *by design*: the
+  executor is built at the Python seam (`../reduce/`, the `reduce` verb — see
+  `../okf/concepts/reduce.md`); in C, rules and the weighted tag graph are
+  *stored and inspected* (`../okf/design/interaction-nets-theory.md`).
 - **Glyph host *callbacks*** (`describe`/`newContent`/`render` in the host
   language) — needs an FFI callback bridge; glyphs are data descriptors for now.
 - **Advanced Voidscript**: `def`/functions, `try/catch`, `on error`, `include`,
   `call`, `wait`, `prompt`.
 - The **command-architecture** question (reified commands) —
-  `../notes/command-architecture.md`.
+  `../okf/design/command-architecture.md`.
 
-First app to be built on this: the **Deltarune mod creation tool** (Python, via
-the ctypes binding), co-developed to harden the core before Hormiga.
+First app co-developed on this: the **Deltarune mod creation tool** ("Fountain",
+Python, via the ctypes binding), which hardened the core; **Hormiga** now embeds
+it in production (vendored runtime + Void Console), with the Portfolio Manager
+and FaultSack alongside. Conformance: `../conformance/` (SPEC §11) runs against
+every build; CI publishes prebuilt win/mac/linux libraries on `v*` tags.

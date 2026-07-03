@@ -4,7 +4,7 @@ title: Dispatcher
 description: The one command entry point the CLI, GUI, and script runner all call; every mutation is undoable and dirty-tracked.
 resource: core/src/dispatch/dispatch.c
 tags: [status:current, audience:library, audience:dev, confidence:asserted, foundation]
-timestamp: 2026-07-01T00:00:00Z
+timestamp: 2026-07-03T00:00:00Z
 ---
 
 The **dispatcher** is Void Core's single surface: one router that every face (CLI,
@@ -15,6 +15,23 @@ GUI, [Voidscript](/concepts/voidscript.md)) calls. "One core, three faces."
 Every verb returns `{ ok, lines, data }` — `lines` for humans, `data` for machines,
 `ok=false` instead of throwing across the boundary. Argument parsing is quote-aware
 and shared by the CLI and Voidscript.
+
+A dispatcher instance is **not thread-safe** (one mutable state document,
+unsynchronized undo/redo stacks): hosts serialize calls per instance or confine it
+to one thread; distinct instances are independent. Callbacks (log sink, effect
+handler) run synchronously *inside* the dispatch and must not re-enter. SPEC §6.
+
+# POSIX surface
+
+The command surface speaks terminal, so agents can lean on their shell priors:
+**mantle ≈ directory, rune ≈ file, tag expression ≈ glob**. `cd`/`pwd`/`rm`/`mv`/
+`cp`/`mkdir`/`grep`/`man` (plus `?`/`quit`/`dump`) are **argument-aware
+desugarings** rewritten to canonical argv *before* routing — one semantics, many
+spellings; an alias can never fork behavior, undo labels, or mutation
+classification (`rm x` *is* `rune rm x`). Cold starts are self-explanatory:
+root-`ls` (no active mantle) lists the mantles, and `use` with no args (or `cd /`)
+deactivates back to the mantle list. Normative table: SPEC §7.1; implemented in
+both the [C core](/components/c-core.md) (`args.c`) and the JS oracle.
 
 # Invariants
 
