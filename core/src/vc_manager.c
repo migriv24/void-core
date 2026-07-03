@@ -25,6 +25,33 @@ cJSON *vc_state_new(void) {
   return s;
 }
 
+/* SPEC §2: a loaded document may be partial — hydrate any missing/mistyped
+ * top-level container to its empty-state default so every verb can rely on the
+ * containers existing (same discipline as rune hydration, §3.2). */
+static void hydrate_container(cJSON *s, const char *key, int is_array) {
+  cJSON *v = cJSON_GetObjectItemCaseSensitive(s, key);
+  if (v && (is_array ? cJSON_IsArray(v) : cJSON_IsObject(v))) return;
+  if (v) cJSON_DeleteItemFromObjectCaseSensitive(s, key);
+  cJSON_AddItemToObject(s, key, is_array ? cJSON_CreateArray() : cJSON_CreateObject());
+}
+
+static void vc_state_hydrate(cJSON *s) {
+  if (!cJSON_GetObjectItemCaseSensitive(s, "version"))
+    cJSON_AddNumberToObject(s, "version", 1);
+  hydrate_container(s, "domains", 0);
+  hydrate_container(s, "mantles", 1);
+  hydrate_container(s, "scripts", 0);
+  hydrate_container(s, "config", 0);
+  hydrate_container(s, "bindings", 1);
+  hydrate_container(s, "_baseline", 1);
+  hydrate_container(s, "active", 0);
+  cJSON *active = cJSON_GetObjectItemCaseSensitive(s, "active");
+  if (!cJSON_GetObjectItemCaseSensitive(active, "mantle"))
+    cJSON_AddItemToObject(active, "mantle", cJSON_CreateNull());
+  if (!cJSON_GetObjectItemCaseSensitive(active, "domain"))
+    cJSON_AddItemToObject(active, "domain", cJSON_CreateNull());
+}
+
 cJSON *vc_active_mantle(cJSON *state) {
   cJSON *active = cJSON_GetObjectItemCaseSensitive(state, "active");
   cJSON *mname = active ? cJSON_GetObjectItemCaseSensitive(active, "mantle") : NULL;
@@ -43,6 +70,7 @@ VC_Manager *vc_create(const char *state_json) {
   cJSON *parsed = state_json ? cJSON_Parse(state_json) : NULL;
   if (parsed && cJSON_IsObject(parsed)) {
     m->state = parsed; /* round-trip an existing document (SPEC §2) */
+    vc_state_hydrate(m->state); /* a partial document gets the missing defaults */
   } else {
     if (parsed) cJSON_Delete(parsed); /* malformed/non-object => empty state */
     m->state = vc_state_new();
@@ -102,4 +130,28 @@ void vc_destroy(VC_Manager *m) {
   free(m);
 }
 
-const char *vc_version(void) { return "0.1.0"; }
+int vc_tag_match(const char *expr, const char *tags_json) {
+  if (!expr || !tags_json) return -1;
+  cJSON *tags = cJSON_Parse(tags_json);
+  if (!cJSON_IsArray(tags)) {
+    if (tags) cJSON_Delete(tags);
+    return -1;
+  }
+  cJSON *it = NULL;
+  cJSON_ArrayForEach(it, tags) {
+    if (!cJSON_IsString(it)) { cJSON_Delete(tags); return -1; }
+  }
+  /* Wrap the bag of tags as a rune shape so the one evaluator (vc_filter_eval)
+   * runs unchanged. spirit.name is empty: name-as-tag is the caller's choice
+   * (put the name in the array). */
+  cJSON *rune = cJSON_CreateObject();
+  cJSON *spirit = cJSON_CreateObject();
+  cJSON_AddStringToObject(spirit, "name", "");
+  cJSON_AddItemToObject(rune, "spirit", spirit);
+  cJSON_AddItemToObject(rune, "tags", tags);
+  int r = vc_filter_eval(rune, expr) ? 1 : 0;
+  cJSON_Delete(rune);
+  return r;
+}
+
+const char *vc_version(void) { return "0.2.0"; }

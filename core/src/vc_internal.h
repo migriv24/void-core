@@ -129,6 +129,9 @@ typedef struct {
   int count;
 } vc_argv;
 vc_argv vc_argv_split(const char *line); /* quote-aware tokenizer */
+/* Rewrite POSIX-flavored aliases to their canonical verb form (SPEC §7) —
+ * argument-aware (e.g. `rm x` -> `rune rm x`), applied before routing. */
+void vc_argv_desugar(vc_argv *a);
 void vc_argv_free(vc_argv *a);
 
 #endif /* VC_INTERNAL_H */

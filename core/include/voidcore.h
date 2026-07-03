@@ -9,6 +9,15 @@
  * Memory rule: any `char*` returned by this library is owned by the caller and
  * MUST be released with vc_free_str(). Handles (VC_Manager*) are released with
  * vc_destroy(). Strings returned by vc_version() are static — do NOT free them.
+ *
+ * Threading rule (SPEC §6): a VC_Manager is NOT thread-safe — it holds one
+ * mutable state document and unsynchronized undo/redo stacks. Serialize every
+ * call that takes the same manager (vc_dispatch, vc_export_state, ...) behind a
+ * lock, or confine the manager to one thread. Distinct managers are fully
+ * independent and may be used concurrently. Host callbacks (log sink, effect
+ * handler) are invoked synchronously on the calling thread, inside the dispatch.
+ * Stateless functions (vc_tag_match, vc_alloc_str, vc_free_str, vc_version) are
+ * safe from any thread.
  */
 #ifndef VOIDCORE_H
 #define VOIDCORE_H
@@ -81,6 +90,18 @@ VC_API void vc_free_str(char *s);
 
 /* Destroy a manager and everything it owns. */
 VC_API void vc_destroy(VC_Manager *m);
+
+/* Evaluate a SPEC §5 tag/filter expression against a bag of tags, without a
+ * manager. `tags_json` is a JSON array of tag strings, e.g.
+ *   ["month:june","type:event","alpha"]
+ * Returns 1 (match), 0 (no match), or -1 on malformed input (NULL args or
+ * `tags_json` not a JSON array of strings). An empty expression matches (1).
+ * Name-as-tag: include the entity's name in the array to get SPEC §5 name
+ * matching; likewise include "glyph:<g>" if glyph matching is wanted. This is
+ * the ONE implementation of the filter grammar — hosts filtering holiday/
+ * external entities should call this instead of reimplementing the grammar.
+ * Stateless and thread-safe. */
+VC_API int vc_tag_match(const char *expr, const char *tags_json);
 
 /* Library version (static string, do not free). */
 VC_API const char *vc_version(void);

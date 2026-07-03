@@ -13,8 +13,13 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
   (void)m; (void)state; (void)a; (void)v; (void)err;
   if (0) {
   } else if (!strcmp(v, "use")) {
-    if (a.count < 2) {
-      res = res_fail("usage: use <mantle>");
+    if (a.count < 2 || !strcmp(a.items[1], "/")) {
+      /* SPEC §7: `use` with no argument (or `/`) deactivates — back to the
+       * mantle list, where root-`ls` shows what's there. */
+      cJSON *active = cJSON_GetObjectItemCaseSensitive(state, "active");
+      cJSON_ReplaceItemInObjectCaseSensitive(active, "mantle", cJSON_CreateNull());
+      res = res_make(1);
+      res_line(res, "no active mantle ('ls' lists mantles, 'use <mantle>' enters one)");
     } else {
       cJSON *found = NULL, *mm = NULL;
       cJSON_ArrayForEach(mm, cJSON_GetObjectItemCaseSensitive(state, "mantles")) {
@@ -126,6 +131,17 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
             cJSON_ReplaceItemInObjectCaseSensitive(e, "from", cJSON_CreateString(a.items[3]));
           if (cJSON_IsString(to) && !strcmp(to->valuestring, old))
             cJSON_ReplaceItemInObjectCaseSensitive(e, "to", cJSON_CreateString(a.items[3]));
+        }
+        /* SPEC §3.4: repoint name-tag references in other runes' tags too. */
+        cJSON *rr = NULL;
+        cJSON_ArrayForEach(rr, cJSON_GetObjectItemCaseSensitive(mt, "runes")) {
+          cJSON *rtags = cJSON_GetObjectItemCaseSensitive(rr, "tags");
+          int nt = cJSON_GetArraySize(rtags);
+          for (int ti = 0; ti < nt; ti++) {
+            cJSON *tg2 = cJSON_GetArrayItem(rtags, ti);
+            if (cJSON_IsString(tg2) && !strcmp(tg2->valuestring, old))
+              cJSON_ReplaceItemInArray(rtags, ti, cJSON_CreateString(a.items[3]));
+          }
         }
         res = res_make(1);
         res_line(res, "renamed %s -> %s", a.items[2], a.items[3]);

@@ -4,7 +4,7 @@ title: Voidscript
 description: A small terminal-complete language over the dispatcher; every non-control line is a dispatcher command.
 resource: core/src/scripts/voidscript.c
 tags: [status:current, audience:library, audience:dev, confidence:asserted]
-timestamp: 2026-06-18T00:00:00Z
+timestamp: 2026-07-01T00:00:00Z
 ---
 
 **Voidscript** is a scripting language whose every non-control statement is a

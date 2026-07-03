@@ -4,7 +4,7 @@ title: Domain
 description: The base a mantle renders or deploys onto — the seam between the abstract model and the real world.
 resource: SPEC.md
 tags: [status:current, audience:library, audience:dev, confidence:asserted]
-timestamp: 2026-06-28T00:00:00Z
+timestamp: 2026-07-01T00:00:00Z
 ---
 
 A **domain** is what a [mantle](/concepts/mantle.md) sits on: a hosting/output target

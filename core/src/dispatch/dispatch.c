@@ -37,6 +37,9 @@ cJSON *vc_dispatch_json(VC_Manager *m, const char *command) {
     vc_argv_free(&a);
     return res_fail("empty command");
   }
+  /* POSIX aliases desugar to canonical argv first (SPEC §7), so is_mutating and
+   * the undo label see the same command every downstream consumer does. */
+  vc_argv_desugar(&a);
   const char *v = a.items[0];
   cJSON *state = m->state;
   cJSON *res = NULL;

@@ -37,17 +37,17 @@ claim `current` without a `resource:` link to the code that backs it.
 * [Domain](/concepts/domain.md) - the target a mantle renders/deploys onto
 * [UI / UX](/concepts/ui-ux.md) - every app has a user; the core renders nothing but an app must describe its UI/UX — planned
 * [Logging & debug](/concepts/logging-debug.md) - the logging spine + debug/testing surface
-* [Links](/concepts/links.md) - loose connections (the passive substrate) — planned
-* [Graph analytics](/concepts/graph-analytics.md) - centrality/clustering tools for agents — planned
-* [Interaction nets](/concepts/interaction-nets.md) - the mathematical foundation — partly planned
-* [Reduce](/concepts/reduce.md) / [Temper](/concepts/temper.md) / [Scry](/concepts/scry.md) - the three transformation layers — planned
+* [Links](/concepts/links.md) - loose connections (the passive substrate); cross-entity links planned
+* [Graph analytics](/concepts/graph-analytics.md) - centrality/clustering tools for agents (a compute holiday)
+* [Interaction nets](/concepts/interaction-nets.md) - the mathematical foundation; its executor is Reduce
+* [Reduce](/concepts/reduce.md) / [Temper](/concepts/temper.md) / [Scry](/concepts/scry.md) - the three transformation layers (dispatcher verbs at the seam)
 
 # Components — the implementations
 
 * [C core](/components/c-core.md) - the libvoidcore.dll engine
 * [Python binding](/components/python-binding.md) - the ctypes binding
-* [MeshDB holiday](/components/meshdb-holiday.md) - a local graph BaaS — in progress
-* [OKF engine](/components/okf-engine.md) - this format, as a holiday — planned
+* [MeshDB holiday](/components/meshdb-holiday.md) - a local graph BaaS — verified
+* [OKF engine](/components/okf-engine.md) - this format, as a holiday (consume/produce/validate v0.1)
 
 # References
 

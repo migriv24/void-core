@@ -4,7 +4,7 @@ title: Holiday
 description: The protocol interface to an external system the application does not own — an API, cloud DB, file host, or knowledge bundle.
 resource: SPEC.md
 tags: [status:current, audience:library, audience:dev, confidence:asserted, foundation]
-timestamp: 2026-06-28T00:00:00Z
+timestamp: 2026-07-01T00:00:00Z
 ---
 
 A **holiday** is how Void Core reaches a system it does *not* own — it is "away" from

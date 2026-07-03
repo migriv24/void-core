@@ -45,8 +45,9 @@ remains is integration polish, per the concept pages:
 * [Logging & debug](/concepts/logging-debug.md) - richer debug/trace tooling and a
   Voidscript-driven **test engine** (`assert`-over-dispatcher)
 * [OKF engine](/components/okf-engine.md) - v0.1 (consume/produce/validate) is built;
-  exposing it as [dispatcher](/concepts/dispatcher.md) verbs in the core (today it is a
-  host-side holiday) and the [graph-analytics](/concepts/graph-analytics.md) holiday remain
+  exposing it — and the built [graph-analytics](/concepts/graph-analytics.md) holiday — as
+  [dispatcher](/concepts/dispatcher.md) verbs in the core remains (today both are
+  host-side holidays)
 
 # Deferred / research
 

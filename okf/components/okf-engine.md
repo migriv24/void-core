@@ -3,8 +3,8 @@ type: Engine
 title: OKF engine
 description: The Open Knowledge Format as a Void Core holiday — consume, produce, and validate knowledge bundles.
 resource: holidays/okf/__main__.py
-tags: [status:planned, audience:dev, audience:library, confidence:asserted]
-timestamp: 2026-06-18T00:00:00Z
+tags: [status:current, audience:dev, audience:library, confidence:asserted]
+timestamp: 2026-07-01T00:00:00Z
 ---
 
 The **OKF engine** makes [Open Knowledge Format](/references/okf-spec.md) bundles a
@@ -35,13 +35,14 @@ visualizer of its own. This bundle you are reading is the engine's hand-authored
 
 # Status
 
-`planned` overall, but **all three jobs have a working v0.1** at `holidays/okf/`
+`current` — **all three jobs have a working v0.1** at `holidays/okf/`
 (Python): **consume** (`bundle.py` parser + model + SPEC §5 tag-filter, plus
 `voidcore_bridge.py` mapping concepts into real [runes](/concepts/rune.md) through the
 C core), **produce** (`voidcore_bridge.py` — mantle → bundle with the `--where`
 library filter; round-trips losslessly: 19 concepts + 92 [links](/concepts/links.md)
-identical), and **validate** (`validate.py` — conformance + resource-freshness drift).
-CLI: `python holidays/okf ls|get|query|validate|produce|analyze`. Still `planned`: the
-[graph-analytics](/concepts/graph-analytics.md) holiday, and exposing these as
+identical), and **validate** (`validate.py` — conformance + resource-freshness drift +
+honesty-convention lint). CLI: `python holidays/okf ls|get|query|validate|produce|analyze`,
+plus `manifest.py` (the [app-manifest](/concepts/app-manifest.md) reader). Still `planned`:
+exposing these (and [graph analytics](/concepts/graph-analytics.md)) as
 [dispatcher](/concepts/dispatcher.md) verbs in the core itself (today they are a
-host-side holiday). Design: [OKF as a core feature](/design/okf-design.md).
+host-side holiday — see [roadmap](/roadmap.md)). Design: [OKF as a core feature](/design/okf-design.md).

@@ -13,6 +13,10 @@ module.exports = (deps) => {
     },
     use(c, pos) {
       const name = pos[0];
+      if (!name || name === '/') {  // SPEC §7: no-arg (or /) deactivates — back to the mantle list
+        state.active.mantle = null;
+        return res(["no active mantle ('ls' lists mantles, 'use <mantle>' enters one)"]);
+      }
       if (state.mantles.find(m => m.name === name)) { state.active.mantle = name; return res([`active mantle -> ${name}`]); }
       if (state.domains[name]) { state.active.domain = name; return res([`active domain -> ${name}`]); }
       throw new Error(`no mantle or domain named "${name}"`);
@@ -49,6 +53,7 @@ module.exports = (deps) => {
         ' life:    preview save deploy build revert',
         ' scripts: script run|ls|show|new|set',
         ' system:  log use config export import help version exit',
+        ' posix:   cd pwd rm mv cp mkdir grep man ? quit dump  (aliases, SPEC §7)',
       ], Object.keys(deps.handlers));
     },
   };

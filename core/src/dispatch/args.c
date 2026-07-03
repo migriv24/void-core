@@ -64,6 +64,49 @@ vc_argv vc_argv_split(const char *line) {
   return a;
 }
 
+/* ── POSIX surface (SPEC §7) ─────────────────────────────────────────────────
+ * Aliases are argument-aware desugarings applied to the argv before routing —
+ * one semantics, many spellings; an alias never forks behavior. Rewriting here
+ * (before is_mutating / undo capture) keeps the alias and its canonical form
+ * indistinguishable everywhere downstream. */
+static void argv_replace(vc_argv *a, int i, const char *s) {
+  free(a->items[i]);
+  a->items[i] = dupstr(s);
+}
+
+static void argv_prepend(vc_argv *a, const char *s) {
+  a->items = (char **)realloc(a->items, (size_t)(a->count + 1) * sizeof(char *));
+  memmove(&a->items[1], &a->items[0], (size_t)a->count * sizeof(char *));
+  a->items[0] = dupstr(s);
+  a->count++;
+}
+
+void vc_argv_desugar(vc_argv *a) {
+  if (a->count == 0) return;
+  const char *v = a->items[0];
+  /* verb renames */
+  static const struct { const char *from, *to; } ren[] = {
+      {"?", "help"},     {"man", "help"},  {"quit", "exit"},
+      {"pwd", "where"},  {"dump", "export"}, {"grep", "find"},
+      {"cd", "use"},
+  };
+  for (size_t i = 0; i < sizeof ren / sizeof ren[0]; i++) {
+    if (!strcmp(v, ren[i].from)) { argv_replace(a, 0, ren[i].to); return; }
+  }
+  /* argument-aware desugarings: `rm x` means `rune rm x` (not `rune x`) */
+  static const struct { const char *from, *fam, *sub; } des[] = {
+      {"rm", "rune", "rm"},   {"mv", "rune", "rename"},
+      {"cp", "rune", "dup"},  {"mkdir", "mantle", "new"},
+  };
+  for (size_t i = 0; i < sizeof des / sizeof des[0]; i++) {
+    if (!strcmp(v, des[i].from)) {
+      argv_replace(a, 0, des[i].sub);
+      argv_prepend(a, des[i].fam);
+      return;
+    }
+  }
+}
+
 void vc_argv_free(vc_argv *a) {
   if (!a) return;
   for (int i = 0; i < a->count; i++) free(a->items[i]);

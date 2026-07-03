@@ -25,6 +25,7 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
         "bind bindings unbind batch relate unrelate related rule script";
     res = res_make(1);
     res_line(res, "verbs: %s", verbs);
+    res_line(res, "posix aliases: cd pwd rm mv cp mkdir grep man ? quit dump");
     res_set_data(res, cJSON_CreateString(verbs));
 
   } else if (!strcmp(v, "mantles")) {
@@ -60,12 +61,26 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
     res_set_data(res, arr);
 
   } else if (!strcmp(v, "ls")) {
-    cJSON *mt = need_mantle(state, &err);
+    cJSON *mt = vc_active_mantle(state);
     if (!mt) {
-      res = err;
+      /* root-ls (SPEC §7): with no active mantle, list the mantles — a cold
+       * start is self-explanatory instead of an error. data = mantle names. */
+      res = res_make(1);
+      cJSON *arr = cJSON_CreateArray();
+      cJSON *mm = NULL;
+      cJSON_ArrayForEach(mm, cJSON_GetObjectItemCaseSensitive(state, "mantles")) {
+        const char *nm = vc_mantle_name(mm);
+        res_line(res, "  %s/", nm);
+        cJSON_AddItemToArray(arr, cJSON_CreateString(nm));
+      }
+      if (cJSON_GetArraySize(arr) == 0)
+        res_line(res, "(no mantles — create one with 'mantle new <name>')");
+      res_set_data(res, arr);
     } else {
-      /* optional "--tag <expr>": join all tokens after the flag so an unquoted
-       * multi-word expression still works. */
+      /* optional "--tag <expr>": join the tokens after the flag so an unquoted
+       * multi-word expression still works — but stop at the next `--flag`, so a
+       * trailing flag (e.g. `--json` appended by a $(…) capture) never joins
+       * into the tag expression. */
       char expr[1024];
       expr[0] = 0;
       int have_expr = 0;
@@ -73,6 +88,7 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
         if (!strcmp(a.items[i], "--tag")) {
           have_expr = 1;
           for (int j = i + 1; j < a.count; j++) {
+            if (!strncmp(a.items[j], "--", 2)) break;
             if (j > i + 1) strncat(expr, " ", sizeof expr - strlen(expr) - 1);
             strncat(expr, a.items[j], sizeof expr - strlen(expr) - 1);
           }

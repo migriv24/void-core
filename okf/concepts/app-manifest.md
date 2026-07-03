@@ -4,12 +4,12 @@ title: App manifest
 description: How a Void Core app introduces itself — a reserved OKF concept (app.md, type Manifest) carrying identity + an optional representation layer, read via the OKF holiday.
 resource: holidays/okf/manifest.py
 tags: [status:current, audience:dev, audience:library, confidence:asserted]
-timestamp: 2026-06-30T00:00:00Z
+timestamp: 2026-07-01T00:00:00Z
 ---
 
 Every app builds on the same `core`, so there's a standard way for one to **introduce
-itself** — instead of every tool (a launcher, a registry, [FaultSack](/components/c-core.md))
-re-scraping prose. The manifest is a reserved OKF concept at the bundle root, **`app.md`** of
+itself** — instead of every tool (a launcher, a registry, FaultSack — the external OKF
+study tool) re-scraping prose. The manifest is a reserved OKF concept at the bundle root, **`app.md`** of
 **`type: Manifest`**, read with `read_manifest()` in the [OKF engine](/components/okf-engine.md)
 holiday. It is **data, not engine behavior**: the core defines the shape and renders nothing
 (same discipline as [layout/rules](/concepts/mantle.md) — persisted, not executed).

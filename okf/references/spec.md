@@ -14,7 +14,8 @@ oracle, a future binding) must do. Where the [concepts](/concepts/index.md) expl
 indexed doorway into it; the canonical text stays in `SPEC.md` (not duplicated here).
 
 Section markers in SPEC: **[impl]** = mandatory in the reference impl · **[ext]** =
-Hormiga-only extension · **[impl unless marked]** = mandatory verbs except where noted.
+Hormiga-only extension · **[seam]** = dispatcher contract implemented once at the Python
+seam (optional per binding) · **[impl unless marked]** = mandatory verbs except where noted.
 
 # Section → concept map
 

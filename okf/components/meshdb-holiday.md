@@ -4,7 +4,7 @@ title: MeshDB holiday
 description: A local, offline graph Backend-as-a-Service holiday backed by MeshDB (Bolt/Cypher); the default data backend for graph-shaped apps.
 resource: holidays/meshdb/meshdb_holiday.py
 tags: [status:current, audience:dev, confidence:verified]
-timestamp: 2026-06-18T00:00:00Z
+timestamp: 2026-07-01T00:00:00Z
 ---
 
 The first concrete [holiday](/concepts/holiday.md): a local, offline graph
@@ -49,6 +49,7 @@ asserting `holiday.query(expr) == core ls --tag expr`.
 `current` (the holiday itself, **verified 2026-06-18**). `meshdb-server` built and the
 end-to-end smoke passed: 3 runes synced core → MeshDB, full CRUD + describe, and
 **tag-query parity 7/7** — every tag expression returns the same rune set from
-MeshDB/Cypher as from the core's own `ls --tag`. Still `planned`: binding
-`vc_set_effect_handler` in the Python layer so the [dispatcher](/concepts/dispatcher.md)'s
-`save` routes through this holiday. See the bundle [log](/log.md).
+MeshDB/Cypher as from the core's own `ls --tag`. The effect-handler binding this was
+waiting on now exists (`VoidCore.set_effect_handler`, 2026-06-28), so routing the
+[dispatcher](/concepts/dispatcher.md)'s `save` through this holiday is unblocked; wiring
+a real app through it end-to-end is the remaining step. See the bundle [log](/log.md).

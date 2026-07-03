@@ -2,8 +2,9 @@
 type: Concept
 title: Reduce
 description: The graph rewriter — fire a mantle's interaction rules / expand references until normal form, producing a derived mantle.
-tags: [status:planned, audience:dev, audience:library, confidence:asserted, foundation]
-timestamp: 2026-06-28T00:00:00Z
+resource: reduce/reduce.py
+tags: [status:current, audience:dev, audience:library, confidence:asserted, foundation]
+timestamp: 2026-07-01T00:00:00Z
 ---
 
 **Reduce** is the first of Void Core's three transformation verbs
@@ -19,7 +20,7 @@ previewable, undoable; effects never fire from inside it.
 
 # Status
 
-**Built (2026-06-28)** — `VoidCore/reduce/` (`from voidcore import Reducer, Net, Agent,
+`current` — **built (2026-06-28)**: `VoidCore/reduce/` (`from voidcore import Reducer, Net, Agent,
 annihilate, commute, expand, to_net, from_net`). A faithful Lafont interaction-net
 reducer: a `Net` of `Agent`s with a principal + auxiliary ports and a symmetric wiring map
 (`reduce/net.py`, the deferred §4 port-signature groundwork), and the `Reducer`

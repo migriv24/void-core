@@ -2,8 +2,9 @@
 type: Concept
 title: Scry
 description: Pure projection/resolution — views over state (+ optional holiday snapshot) + context; tag-eval, the round-trip law, and materialize live here.
-tags: [status:planned, audience:dev, audience:library, confidence:asserted, foundation]
-timestamp: 2026-06-28T00:00:00Z
+resource: scry/projection.py
+tags: [status:current, audience:dev, audience:library, confidence:asserted, foundation]
+timestamp: 2026-07-01T00:00:00Z
 ---
 
 **Scry** is the read-side verb (sibling of [Reduce](/concepts/reduce.md) and
@@ -32,7 +33,9 @@ at edit time (bake-into-state is a bug magnet; derive-from-snapshot is the defau
 
 # Status
 
-`planned` as a full layer, but **most of it is now built (2026-06-28)**:
+`current` — **built (2026-06-28)**, including the `scry`/`materialize`
+[dispatcher](/concepts/dispatcher.md) verbs and Selectors authored as data
+(`voidcore.spec.selector_from_spec`, `config.transform.selectors`):
 
 - **Round-trip law** — `VoidCore/scry/roundtrip.py`, `from voidcore import
   check_roundtrip`. Verified LOSSLESS on real record⇄rune mappings and shown to catch the
@@ -48,8 +51,8 @@ at edit time (bake-into-state is a bug magnet; derive-from-snapshot is the defau
   (`scry/conformance_test.py`); projection/purity covered by `scry/projection_test.py`.
 
 Still `planned`: context-parameterized `resolve` that pulls from a live
-[holiday](/concepts/holiday.md) **snapshot** (the `scry(state, snapshot, context)` shape),
-and exposing `scry`/`materialize` as dispatcher verbs. The motivating cases are record⇄rune
+[holiday](/concepts/holiday.md) **snapshot** (the `scry(state, snapshot, context)` shape —
+see [roadmap](/roadmap.md)). The motivating cases are record⇄rune
 mappings (`ls --tag`), live galleries, bilingual variants, and reproducible archives; the
 [OKF engine](/components/okf-engine.md) is already a scry (mantle → concept bundle). Design:
 [transform layers](/design/transform-layers.md).

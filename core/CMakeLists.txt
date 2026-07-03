@@ -47,8 +47,10 @@ target_compile_definitions(voidcore
 )
 if(NOT MSVC)
   target_compile_options(voidcore PRIVATE -Wall -Wextra)
+endif()
+if(NOT MSVC AND NOT APPLE)
   # keep the runtime self-contained (no libgcc dependency) — see
-  # local_compilation_discovery.md
+  # local_compilation_discovery.md. Apple clang has no libgcc to staticize.
   target_link_options(voidcore PRIVATE -static-libgcc)
 endif()
 if(WIN32)

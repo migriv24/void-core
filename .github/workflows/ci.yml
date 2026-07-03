@@ -1,0 +1,86 @@
+# CI + release artifacts for the Void Core C library (HORMIGA_HANDOFF §1.3).
+#
+# Every push/PR: build the shared library on the three platforms, run the C smoke
+# test, and run the language-neutral conformance suite (SPEC §11) against the
+# fresh build through the Python binding.
+#
+# Every `v*` tag: additionally publish the three prebuilt libraries as a GitHub
+# Release, so downstream vendoring (e.g. Hormiga's `vendor_voidcore.py
+# --from-release <tag>`) can pin a runtime per platform instead of shipping a
+# degraded console on mac/linux.
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            lib: libvoidcore-win-x64.dll
+          - os: macos-latest
+            lib: libvoidcore-macos-universal.dylib
+            cmake_args: -DCMAKE_OSX_ARCHITECTURES=arm64;x86_64
+          - os: ubuntu-latest
+            lib: libvoidcore-linux-x64.so
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure
+        shell: bash
+        run: cmake -S core -B core/build -DCMAKE_BUILD_TYPE=Release "${{ matrix.cmake_args }}"
+
+      - name: Build
+        run: cmake --build core/build --config Release
+
+      - name: Collect library
+        shell: bash
+        run: |
+          mkdir -p dist
+          lib=$(find core/build -type f \( -name '*voidcore*.dll' -o -name 'libvoidcore.so' -o -name 'libvoidcore.dylib' \) | head -1)
+          echo "built: $lib"
+          cp "$lib" "dist/${{ matrix.lib }}"
+
+      - name: C smoke test
+        shell: bash
+        run: |
+          smoke=$(find core/build -type f \( -name 'vc_smoke' -o -name 'vc_smoke.exe' \) | head -1)
+          "$smoke"
+
+      - name: Conformance suite (SPEC §11)
+        shell: bash
+        run: python conformance/run.py --dll "$PWD/dist/${{ matrix.lib }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.lib }}
+          path: dist/${{ matrix.lib }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

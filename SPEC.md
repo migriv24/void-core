@@ -1,4 +1,4 @@
-# Void Core — Specification (v0.1)
+# Void Core — Specification (v0.2)
 
 > **The contract.** This document defines Void Core independently of any one
 > implementation, so that multiple implementations (the [C core](core/README.md), the
@@ -43,7 +43,7 @@ a language or a runtime. The application it sits over may be written in **any**
 language (HTML/JS, Python, C++, Rust, …); only the **adapter** (§9) must speak the
 host's language. Void Core structures and orchestrates an application — it does
 **not** compile, replace, or *execute* it. (Contrast Bend/NeLA, which are languages
-with their own reduction runtimes; see `notes/what-voidcore-is-not.md`.)
+with their own reduction runtimes; see `okf/design/what-voidcore-is-not.md`.)
 
 An implementation of Void Core itself MAY be written in any language. It MUST
 preserve the data shapes (§3), the dispatcher result contract (§6), tag semantics
@@ -95,7 +95,7 @@ All persistent working state is one serializable document:
   "facets":  { "who":"", "what":"", "when":"", "where":"", "why":"", "how":"" },
   "tags":    ["science", "outcome:concepts"],
   "content": { /* glyph-specific; core does NOT interpret it */ },
-  "placement": null,                   // optional explicit position (Codex §3)
+  "placement": null,                   // optional explicit position (reserved)
   "relations": []                      // optional; reserved
 }
 ```
@@ -135,7 +135,7 @@ A glyph binds a rune type to how it is edited and how it is described.
   "runes":  [ <Rune>, ... ],
   "tags":   {},                        // tag definitions (reserved)
   "layout": { "edges": [ <Link> ] },   // the link graph (§3.7)
-  "rules":  [ ]                        // event/behavior rules (reserved; Codex §3)
+  "rules":  [ ]                        // event/behavior rules (reserved)
 }
 ```
 Required operations (semantics fixed):
@@ -144,26 +144,9 @@ Required operations (semantics fixed):
 - `removeRune` — also drop any `layout.edges` referencing the rune.
 - `renameRune` — keep `spirit.id`; reject a taken name; repoint every reference
   to the old name in other runes' `tags` and in `layout.edges`.
-- `rules` are **persisted from day one** but the rule-engine that consumes them
-  is out of scope for v1 (Codex §3).
-
-### 3.7 Link — a loose connection in the layout graph  **[impl]**
-```jsonc
-{ "from":"intro", "to":"methods", "relation":"supports",
-  "weight": 1.0, "directed": true }
-```
-A **link** is a passive (non-reactive) connection between two runes, stored in the
-mantle's `layout.edges`. `relation` is a free label (may be `""`), `weight` a number
-(default `1.0`), `directed` a bool (default `true`). Semantics:
-- Links are the **passive substrate**: storing one does nothing on its own. (A
-  reactive connection that *fires* is a `binding`, §3.6 — a link with behavior.)
-- A link **MAY dangle**: an endpoint need not exist (it may be not-yet-created
-  knowledge). `validate` reports dangling endpoints; it does not forbid them.
-- Created/updated via `link` (and the `rune move` alias); removed via `unlink`;
-  listed via `links` (§7). Repointed on rename, dropped on remove (§3.4).
-- A rune's `relations` field (§3.2) is reserved/superseded by the mantle link graph.
-- Cross-entity links (rune↔mantle↔holiday) are a planned extension; v1 links are
-  rune↔rune within one mantle.
+- `rules` are **persisted from day one**; the executor that consumes a mantle's
+  rewrite rules is the `reduce` verb at the seam (§7), driven by
+  `config.transform.reduce` — the inline `rules` array itself remains reserved (§12).
 
 ### 3.5 Domain — the base a mantle renders/deploys onto  **[impl]**
 ```jsonc
@@ -190,7 +173,25 @@ Lives at host level because it references more than one mantle.
 ```
 A ref string is `"mantle:rune"` or `"rune"` (default mantle supplied by caller).
 The reaction engine that *fires* bindings is reserved (priorities first, full
-Petri-net semantics later — see `LEARNINGS.md`).
+Petri-net semantics later — see `okf/design/interaction-nets-theory.md`).
+
+### 3.7 Link — a loose connection in the layout graph  **[impl]**
+```jsonc
+{ "from":"intro", "to":"methods", "relation":"supports",
+  "weight": 1.0, "directed": true }
+```
+A **link** is a passive (non-reactive) connection between two runes, stored in the
+mantle's `layout.edges`. `relation` is a free label (may be `""`), `weight` a number
+(default `1.0`), `directed` a bool (default `true`). Semantics:
+- Links are the **passive substrate**: storing one does nothing on its own. (A
+  reactive connection that *fires* is a `binding`, §3.6 — a link with behavior.)
+- A link **MAY dangle**: an endpoint need not exist (it may be not-yet-created
+  knowledge). `validate` reports dangling endpoints; it does not forbid them.
+- Created/updated via `link` (and the `rune move` alias); removed via `unlink`;
+  listed via `links` (§7). Repointed on rename, dropped on remove (§3.4).
+- A rune's `relations` field (§3.2) is reserved/superseded by the mantle link graph.
+- Cross-entity links (rune↔mantle↔holiday) are a planned extension; v1 links are
+  rune↔rune within one mantle.
 
 ---
 
@@ -214,7 +215,8 @@ Petri-net semantics later — see `LEARNINGS.md`).
   `where`, `what`, `who`, `when`, `state`, `free`. A namespace maps to one axis
   (e.g. `site`/`group`/`section`/`outcome` → `where`; `trigger` → `when`;
   `status` → `state`); unknown namespaces → `free`. This is the interlingua that
-  lets two independent tag sets merge by typed union (see `LEARNINGS.md`).
+  lets two independent tag sets merge by typed union (see
+  `okf/concepts/tag-system.md`).
 - **Filter-expression grammar** (used by `ls --tag`, `@…` targets, `foreach`):
   ```
   expr   := or
@@ -225,6 +227,14 @@ Petri-net semantics later — see `LEARNINGS.md`).
   ```
   `TAG` matches if it is in the rune's tag set (including its name). Operators are
   case-insensitive. An empty expression matches all runes.
+- **One evaluator, exposed over the FFI.** The C core exports the grammar as
+  `vc_tag_match(expr, tags_json) -> 1|0|-1` (`tags_json` = a JSON array of tag
+  strings; include the entity's name for name-as-tag matching; stateless,
+  thread-safe; bound in Python as `VoidCore.tag_match(expr, tags)`). Hosts that
+  filter *external* entities by tag expression — e.g. holiday rows behind
+  `effect query "<expr>"` (§10) — MUST evaluate through this seam rather than
+  reimplement the grammar, so query-over-holiday means exactly what `ls --tag`
+  means.
 
 ---
 
@@ -254,17 +264,62 @@ One dispatcher backs the CLI, GUI, and script runner.
 mantles+active) *before* mutating; the redo stack is cleared on new mutation;
 the undo stack is bounded (reference impl: 200).
 
+**Threading contract:** a dispatcher instance (a `VC_Manager` in the C core) is
+**not thread-safe** — it holds one mutable state document and unsynchronized
+undo/redo stacks. Hosts MUST serialize all calls that take the same instance
+(`vc_dispatch`, `vc_export_state`, `vc_register_glyph`, …) behind a lock, or
+confine the instance to one thread. (Hormiga's per-manager Python lock is the
+intended pattern, not an over-caution.) Distinct instances are independent and
+may run concurrently. Host callbacks (§9 log sink / effect handler) are invoked
+synchronously on the dispatching thread, *inside* the dispatch — a callback MUST
+NOT re-enter the same instance. Stateless library functions (`vc_tag_match`,
+`vc_alloc_str`, `vc_free_str`, `vc_version`) are safe from any thread.
+
 ---
 
 ## 7. Verb catalog (semantics)  **[impl unless marked]**
 
-Aliases: `rm`→`rune`, `?`→`help`, `quit`→`exit`, `pwd`→`where`, `dump`→`export`.
+### 7.1 POSIX surface (aliases)
+
+Aliases are **argument-aware desugarings** applied to the argv *before* routing —
+one semantics, many spellings; an alias MUST NOT fork behavior (the alias and its
+canonical form are indistinguishable downstream, including in undo labels and
+`is-mutating` classification). The mental model for terminal-trained hands and
+agents: **mantle ≈ directory, rune ≈ file, tag expression ≈ glob**.
+
+| alias | desugars to |
+|---|---|
+| `cd <mantle>` | `use <mantle>` |
+| `cd` / `cd /` | `use` (deactivate — see cold-start semantics below) |
+| `pwd` | `where` |
+| `rm <ref>` | `rune rm <ref>` |
+| `mv <a> <b>` | `rune rename <a> <b>` |
+| `cp <a> [<b>]` | `rune dup <a> [<b>]` |
+| `mkdir <name>` | `mantle new <name>` |
+| `grep <q>` | `find <q>` |
+| `man [verb]` | `help [verb]` |
+| `?` | `help` |
+| `quit` | `exit` |
+| `dump` | `export` |
+
+(This replaces the earlier bare-rename alias `rm`→`rune`, under which `rm x` meant
+`rune x` — a usage error. `rm x` now means `rune rm x`, which is what a POSIX hand
+expects.)
+
+**Cold-start semantics** (so a fresh session is self-explanatory):
+- `ls` with **no active mantle** lists the mantles (root-`ls`) instead of erroring;
+  `data` = array of mantle names. With an active mantle it lists runes as below.
+- `use` with no argument (or `use /`) **deactivates** the current mantle — sets
+  `active.mantle` to `null`, returning to the mantle list. Not undo-tracked (like
+  `use <mantle>`).
+
+### 7.2 Verbs
 
 **Read (no mutation):**
 | verb | meaning |
 |---|---|
 | `describe [<ref>]` | whole-mantle summary, or one rune's glyph summary + 6 facets + its bindings |
-| `ls [--tag <expr>]` | list runes (optionally tag-filtered); `data` = array of names |
+| `ls [--tag <expr>]` | list runes (optionally tag-filtered); `data` = array of names. No active mantle → root-`ls` (§7.1): lists mantles instead. The `--tag` expression ends at the next `--flag` token, so a trailing flag (e.g. `--json` appended by a `$(…)` capture) never joins into the expression |
 | `tree` | mantle → runes → layout edges, indented |
 | `get <ref> [<field>]` | a content field value, or all content |
 | `find <query>` | substring search over name/content/facets/tags |
@@ -284,6 +339,7 @@ Aliases: `rm`→`rune`, `?`→`help`, `quit`→`exit`, `pwd`→`where`, `dump`�
 | verb | meaning |
 |---|---|
 | `set <ref> <field> <value>` | set a content field on every targeted rune |
+| `setjson <ref> <field> <json-value>` | like `set`, but the value is parsed as JSON (number/bool/array/object/string; invalid JSON falls back to a plain string) — how a host/UI (and the transformation verbs below) write typed or structured content |
 | `facet <ref> <who\|what\|when\|where\|why\|how> <value>` | set one facet |
 | `tag <ref> +add -remove …` | add/remove tags |
 | `rune new <glyph> <name>` | mint a rune (auto spirit.id, glyph's `newContent()`) |
@@ -294,7 +350,7 @@ Aliases: `rm`→`rune`, `?`→`help`, `quit`→`exit`, `pwd`→`where`, `dump`�
 | `bind <from> <on> <to> <do> [--name]` | create a cross-mantle binding (validates refs) |
 | `bindings [<rune>] [--mantle m]` / `unbind <id\|name>` | list / remove bindings |
 | `undo [N]` / `redo [N]` | walk the undo/redo stacks |
-| `batch <file>` | apply JSON-array or newline command list **atomically** (rollback on any failure) |
+| `batch '<json-array>'` | apply a JSON array of command strings **atomically** (rollback on any failure) as **one undo frame**. The payload is inline — the core does no file I/O (§9) |
 
 **Lifecycle:**
 | verb | meaning |
@@ -313,7 +369,7 @@ Aliases: `rm`→`rune`, `?`→`help`, `quit`→`exit`, `pwd`→`where`, `dump`�
 
 Reserved namespace: `agent …` (the LLM seam — not wired).
 
-**Transformation verbs** (the three layers — `notes/reducer.md`) **[seam]**:
+**Transformation verbs** (the three layers — `okf/design/transform-layers.md`) **[seam]**:
 
 These are the dispatcher surface of Void Core's three pure transformation layers. They
 **coexist with** the verbs above (they don't replace any) and return the same
@@ -353,10 +409,13 @@ dynamically, so a large `batch` payload is never truncated.)
 
 ---
 
-## 8. Voidscript  **[impl]**
+## 8. Voidscript
 
 A terminal-complete language interpreted over the dispatcher. Every non-control
-line is a dispatcher command. Fully implemented in the reference impl:
+line is a dispatcher command.
+
+**Core subset [impl]** — required for reference conformance; implemented in both
+the C core and the JS oracle:
 
 - **Comments** `# …`; statement separators newline or `;`; blocks `{ }`.
 - **Variables** `let x = <expr>`; interpolation `$x` / `${x}`.
@@ -368,14 +427,18 @@ line is a dispatcher command. Fully implemented in the reference impl:
 - **Loops** `while <cond> { }` (guarded), `repeat <n> { }`,
   `foreach v in (<command>) { }` (iterates the command's `data` array, else lines);
   `break` / `continue`.
-- **Functions** `def name(params) { } ` ; call `name(args)`. An unknown call name
-  falls back to running a saved script of that name.
-- **Errors** `try { } catch (e) { }`, `on error stop|continue` (default stop),
-  `assert <cond>` (halt 1 if false).
-- **Flow** `halt [code]`, `return [value]`, `wait <ms>`, `include "file"`,
-  `call <script> args`, `echo`/`print`.
+- **Errors** `assert <cond>` (halt 1 if false).
+- **Flow** `halt [code]`, `return [value]`, `echo`/`print`.
 - **Args** `script run <name> a b c` exposes `$1 $2 $3` and `$@`.
 - **Result** `{ ok, lines, data }` like any command; `halt N` → `ok = (N==0)`.
+
+**Advanced constructs (oracle only; planned [impl])** — implemented in the JS
+oracle, `planned` for the C core, and *not* required for reference conformance:
+
+- **Functions** `def name(params) { }` ; call `name(args)`. An unknown call name
+  falls back to running a saved script of that name.
+- **Errors** `try { } catch (e) { }`, `on error stop|continue` (default stop).
+- **Flow** `wait <ms>`, `include "file"`, `call <script> args`.
 
 ---
 
@@ -447,12 +510,22 @@ An implementation is **reference-conformant** if, for every behavior marked
    (undo/redo/dirty-tracking);
 3. implements §5 tag matching and the filter grammar exactly;
 4. implements the §7 verbs with the stated semantics;
-5. runs the §8 Voidscript constructs;
+5. runs the §8 Voidscript **core subset** (the advanced constructs are oracle-only
+   and not required);
 6. routes all real-world effects through the §9 adapter + logging seam.
 
-`conformance/` SHOULD hold language-neutral test cases (input script + expected
-`lines`/`data`/state) that every implementation runs. **[ext]** features (§10) are
-tested separately and only against implementations that claim them (Hormiga).
+**[seam]** behaviors (the §7 transformation verbs) are part of the dispatcher
+*contract* but OPTIONAL per implementation: an implementation MAY provide them, and
+one that claims them MUST match the Python reference impl's semantics — purity (no
+I/O / clock / RNG), preview-before-commit, and write-back through the undoable §7
+verbs (`setjson`/`tag`) so every mutation stays one undo frame. They are verified
+against the Python seam's test suite (`voidcore/dispatch_test.py` and siblings), not
+`conformance/`.
+
+`conformance/` holds language-neutral test cases (self-checking Voidscript
+`assert` scripts — see `conformance/README.md`) that every implementation runs.
+**[ext]** features (§10) are tested separately and only against implementations
+that claim them (Hormiga).
 
 ---
 

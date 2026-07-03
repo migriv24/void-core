@@ -33,7 +33,12 @@ module.exports = (deps) => {
       return res(lines, m);
     },
     ls(c, pos, flags) {
-      const m = mantleOrThrow();
+      const m = ctx.active();
+      if (!m) {  // root-ls (SPEC §7): no active mantle -> list the mantles; data = mantle names
+        const lines = state.mantles.map(mm => `  ${mm.name}/`);
+        return res(lines.length ? lines : ["(no mantles — create one with 'mantle new <name>')"],
+                   state.mantles.map(mm => mm.name));
+      }
       const runes = flags.tag ? T.filter(m, flags.tag) : m.runes;
       const lines = runes.map(r => `${r.spirit.name}  [${r.glyph}]  ${r.tags.length ? '#' + r.tags.join(' #') : ''}`.trim());
       return res(lines.length ? lines : ['(no runes)'], runes.map(r => r.spirit.name));

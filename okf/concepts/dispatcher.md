@@ -4,7 +4,7 @@ title: Dispatcher
 description: The one command entry point the CLI, GUI, and script runner all call; every mutation is undoable and dirty-tracked.
 resource: core/src/dispatch/dispatch.c
 tags: [status:current, audience:library, audience:dev, confidence:asserted, foundation]
-timestamp: 2026-06-28T00:00:00Z
+timestamp: 2026-07-01T00:00:00Z
 ---
 
 The **dispatcher** is Void Core's single surface: one router that every face (CLI,

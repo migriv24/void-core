@@ -3,7 +3,7 @@ type: Dictionary
 title: OKF ⇄ Void Core glossary
 description: Bidirectional dictionary between standard OKF vocabulary and Void Core's internal terms.
 tags: [status:current, audience:dev, confidence:asserted, reference]
-timestamp: 2026-06-18T00:00:00Z
+timestamp: 2026-07-01T00:00:00Z
 ---
 
 The [OKF engine](/components/okf-engine.md) speaks **standard OKF** on the outside and
@@ -34,4 +34,4 @@ dictionary.
 |---|---|---|
 | `status:` | `current` / `planned` / `deprecated` | shipped reality vs future plan |
 | `audience:` | `dev` / `library` | which projected bundle a concept belongs to |
-| `confidence:` | `verified` / `asserted` / `stale` | set by `validate`, not by hand |
+| `confidence:` | `verified` / `asserted` / `exploratory` / `stale` | `verified`/`asserted`/`exploratory` are authored; `stale` is stamped by `validate` (resource drift) |

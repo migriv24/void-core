@@ -24,7 +24,10 @@ function createDispatcher({ state, store, glyphs, logger, adapters = {}, config 
     undoStack: [], redoStack: [],
     preview: null,                       // running preview child process
     active() {
-      return state.mantles.find(m => m.name === state.active.mantle) || state.mantles[0] || null;
+      // Strict by-name resolve (matches the C core's vc_active_mantle): no
+      // fallback to mantles[0], so "no active mantle" is a real state and the
+      // SPEC §7 root-ls / `use` deactivation semantics hold.
+      return state.mantles.find(m => m.name === state.active.mantle) || null;
     },
     activeDomain() {
       const m = ctx.active();
@@ -62,7 +65,12 @@ function createDispatcher({ state, store, glyphs, logger, adapters = {}, config 
     return v;
   }
 
-  const aliases = { rm: 'rune', '?': 'help', quit: 'exit', pwd: 'where', dump: 'export' };
+  // POSIX surface (SPEC §7): aliases are argument-aware desugarings applied to
+  // the argv before routing — one semantics, many spellings; an alias never
+  // forks behavior. `renames` swap the verb; `desugars` splice in the family
+  // verb so `rm x` means `rune rm x` (not `rune x`).
+  const renames = { '?': 'help', man: 'help', quit: 'exit', pwd: 'where', dump: 'export', grep: 'find', cd: 'use' };
+  const desugars = { rm: ['rune', 'rm'], mv: ['rune', 'rename'], cp: ['rune', 'dup'], mkdir: ['mantle', 'new'] };
 
   // Shared surface handed to every verb-family factory. `handlers` is filled in
   // just below so a handler can delegate to a sibling (e.g. mantle -> mantles) at
@@ -87,11 +95,13 @@ function createDispatcher({ state, store, glyphs, logger, adapters = {}, config 
   deps.handlers = handlers;
 
   async function dispatch(input) {
-    const argv = Array.isArray(input) ? input : splitArgs(String(input));
+    let argv = Array.isArray(input) ? input : splitArgs(String(input));
     if (!argv.length) return res([]);
+    if (renames[argv[0]]) argv = [renames[argv[0]], ...argv.slice(1)];
+    else if (desugars[argv[0]]) argv = [...desugars[argv[0]], ...argv.slice(1)];
     const verb = argv[0];
     const { positional, flags } = parseArgs(argv.slice(1));
-    const handler = handlers[verb] || handlers[aliases[verb]];
+    const handler = handlers[verb];
     if (!handler) { logger.warn('dispatch', `unknown command: ${verb}`); return res([`unknown command: ${verb} (try \`help\`)`], null, false); }
     try {
       const out = await handler(ctx, positional, flags, dispatch);
