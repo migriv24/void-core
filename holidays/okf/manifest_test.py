@@ -20,7 +20,7 @@ def main() -> int:
     okf_dir = os.path.join(here, "..", "..", "okf")
     m = read_manifest(okf_dir)
     assert m.name == "Void Core" and m.id == "voidcore", m
-    assert m.version == "0.1.0" and m.status == "current"
+    assert m.version == "0.2.1" and m.status == "current"
     assert m.authors == ["migriv24"]
     assert m.icon == "rune" and m.theme == "void"
     assert m.palette.get("primary") == "#7c3aed" and m.palette.get("ink") == "#e8e8f0"

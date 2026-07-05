@@ -154,4 +154,4 @@ int vc_tag_match(const char *expr, const char *tags_json) {
   return r;
 }
 
-const char *vc_version(void) { return "0.2.0"; }
+const char *vc_version(void) { return "0.2.1"; }

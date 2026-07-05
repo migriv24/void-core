@@ -17,5 +17,6 @@ The shared vocabulary every Void Core application inherits.
 * [Temper](/concepts/temper.md) - normalization to canonical form (the `temper` verb)
 * [Scry](/concepts/scry.md) - projection / resolution into views (the `scry`/`materialize` verbs)
 * [App manifest](/concepts/app-manifest.md) - how a Void Core app introduces itself (identity + representation)
+* [Theme resolution](/concepts/theme-resolution.md) - a manifest palette → a complete, legibility-guaranteed theme (the representation renderer)
 * [UI / UX](/concepts/ui-ux.md) - every app has a user; the core renders nothing but an app must describe its UI/UX (abstract, planned)
 * [Logging & debug](/concepts/logging-debug.md) - the logging spine + the debug/testing surface that grows from it

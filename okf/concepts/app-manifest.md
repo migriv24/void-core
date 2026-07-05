@@ -39,6 +39,9 @@ no change. When `app.md` is absent the reader falls back to `index.md` frontmatt
 
 `current` — the reader (`holidays/okf/manifest.py`) + Void Core's own [app.md](/app.md) are
 built and tested (`holidays/okf/manifest_test.py`); `validate` exempts `type: Manifest` from the
-code-`resource:` honesty rule. The **representation asset layer** (a default icon set / palette
-renderer) is `planned` and belongs to a renderer holiday, not the core. Proposed by the FaultSack
-agent; design + decisions in [app-manifest design](/design/app-manifest-design.md).
+code-`resource:` honesty rule. The **palette** half of the representation renderer is now built —
+see [theme resolution](/concepts/theme-resolution.md), which turns a declared palette into a
+complete, legibility-guaranteed theme (and which `validate` now uses to warn on illegible declared
+palettes). The **icon/asset** half remains `planned` and belongs to a renderer holiday, not the
+core. Proposed by the FaultSack agent; design + decisions in
+[app-manifest design](/design/app-manifest-design.md).
