@@ -49,6 +49,23 @@ remains is integration polish, per the concept pages:
   [dispatcher](/concepts/dispatcher.md) verbs in the core remains (today both are
   host-side holidays)
 
+# The open-application track
+
+Direction set 2026-07-04 in [the open application](/design/open-application-design.md);
+**gated on Miguel's answers to its §8 questions**, then built in phases:
+
+1. **Phase A — contracts as pages** (no code): `host bundle` concept + reserved
+   `host.md`/`type: Host`; the **application standard** (3-tier instantiation
+   checklist); **two seats** (builder vs operator agents); manifest `ui.*` keys +
+   the L0–L3 sandbox-surface ladder; engine-reuse standard + the **mantle capsule**
+   envelope.
+2. **Phase B — probe holiday** (`holidays/host/`): the local/host OKF as regenerable
+   probed facts (first consumer: Hormiga's platform checks).
+3. **Phase C — sandbox surface L0/L1**: `render`/`snapshot` effect ops + one
+   reference surface; consumed by FaultSack's sandbox tab.
+4. **Phase D — capsules + registry**: `mantle export`/import with policy; the tagged
+   holiday registry (below) as the discovery layer; `validate --app` lint.
+
 # Deferred / research
 
 * **Inter-application communication** — a protocol layer for the multiple apps built on

@@ -10,7 +10,10 @@ OKF doesn't keep itself accurate; this makes drift *detectable*. Three layers:
               a `status:planned` tag over a body that claims built/verified (the tag is
               the machine truth — retag when something ships); an index bullet whose
               planned/current annotation contradicts the target concept's status tag;
-              a `confidence:` value outside the glossary vocabulary.
+              a `confidence:` value outside the glossary vocabulary; a declared manifest
+              palette pair (ink/bg, accent/bg) that renders illegibly, or an unparseable
+              `palette.<role>` (renderers auto-correct — see theme.py — but the app should
+              know its declared brand won't survive as-is).
   info      — broken *intra-bundle* links. OKF says to tolerate these ("not-yet-written
               knowledge"), so they are informational, never errors.
 
@@ -26,6 +29,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from bundle import Bundle, RESERVED, parse_frontmatter
+from manifest import read_manifest
+from theme import contrast, parse_hex
 
 _BODY_LINK_RE = re.compile(r"\]\((/[^)\s]+\.md)\)")
 # Documentation-type concepts describe a standard, a mapping, an app's identity, or design
@@ -141,6 +146,18 @@ def validate(bundle: Bundle) -> Report:
             if tid not in valid_ids:
                 rep.info.append((cid, f"link to missing concept /{tgt} (tolerated)"))
 
+    # palette honesty: a *declared* pair that renders illegibly. Renderers auto-correct
+    # (holidays/okf/theme.py), but an app that wants to own its brand should know its declared
+    # colors won't survive as-is. Only pairs where BOTH colors are explicitly declared are
+    # checked — sparse palettes are filled by the resolver by design, not a mistake.
+    pal = read_manifest(bundle.dir).palette
+    _palette_pair(rep, pal, "ink", "bg", 4.5)
+    _palette_pair(rep, pal, "primary", "bg", 3.0)
+    _palette_pair(rep, pal, "accent", "bg", 3.0)
+    for role in ("primary", "accent", "bg", "ink", "ok", "warn", "err"):
+        if role in pal and parse_hex(pal[role]) is None:
+            rep.warnings.append(("app.md", f"palette.{role} `{pal[role]}` is not a valid hex color"))
+
     # index-blurb drift: a bullet's planned/current annotation vs the target's status tag
     # (index.md files are RESERVED, so they aren't concepts — read them directly)
     for idx in sorted(glob.glob(os.path.join(bundle.dir, "**", "index.md"), recursive=True)):
@@ -162,6 +179,19 @@ def validate(bundle: Bundle) -> Report:
                     (rel, f"bullet for /{tid} is annotated current/verified but its tag is status:planned"))
 
     return rep
+
+
+def _palette_pair(rep: Report, pal: dict, fg: str, bg: str, target: float) -> None:
+    """Warn if both `fg` and `bg` are declared, parse, and fall below `target` contrast."""
+    a, b = parse_hex(pal.get(fg)), parse_hex(pal.get(bg))
+    if fg not in pal or bg not in pal or a is None or b is None:
+        return
+    ratio = contrast(a, b)
+    if ratio < target:
+        rep.warnings.append(
+            ("app.md", f"palette.{fg} {pal[fg]} vs palette.{bg} {pal[bg]} is {ratio:.2f}:1 "
+                       f"(< {target}:1) — renderers will auto-correct; declare a compliant "
+                       f"{fg} to control your brand"))
 
 
 def suggested_confidence(rep: Report, cid: str) -> str:

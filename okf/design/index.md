@@ -30,6 +30,7 @@ When a track matures into contract, it lands in `SPEC.md`.
 
 ## Research tracks (planned / north-star)
 
+* [The open application](/design/open-application-design.md) - host/local OKF, the app-instantiation standard, the sandbox surface ladder, builder vs operator seats, engine reuse + mantle capsules (open questions pending)
 * [Voidscript as a DSL](/design/voidscript-dsl.md) - grammar-safe orchestration language (PEL direction)
 * [Context-size optimization](/design/context-optimization.md) - context as a core pillar; RL-ready later
 * [Agent tools, memory, extensions](/design/agent-tools-memory.md) - tool structure, memory, sandbox, extensions
