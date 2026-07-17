@@ -32,6 +32,35 @@ module.exports = (deps) => {
       for (const r of targets(ref)) { T.addTags(r, add); T.removeTags(r, rem); }
       return res([`tags updated (+${add.length} -${rem.length})`]);
     },
+    place(c, pos, flags) {
+      // SPEC §3.2/§6/§7 — the view slice: place <ref> reads placement,
+      // place <ref> <x> <y> [<z>] sets it, place <ref> --clear nulls it.
+      // Single rune only. On the mutation spine (logged) but NOT undoable:
+      // no pushUndo, and undo/redo carries placements over (see undo below).
+      const [ref, x, y, z] = pos;
+      if (!ref) throw new Error('usage: place <rune> [<x> <y> [<z>] | --clear]');
+      const r = runeOrThrow(ref);
+      if (flags && flags.clear) {
+        r.placement = null;
+        logger.info('place', `place ${ref} --clear`);
+        return res([`${r.spirit.name} placement cleared`]);
+      }
+      if (x === undefined)   // query
+        return res([`${r.spirit.name} @ ${r.placement ? JSON.stringify(r.placement) : '(unplaced)'}`],
+                   clone(r.placement));
+      const nx = Number(x), ny = Number(y);
+      if (y === undefined || x === '' || y === '' || isNaN(nx) || isNaN(ny))
+        throw new Error('place: coordinates must be numbers');
+      const p = { x: nx, y: ny };
+      if (z !== undefined) {
+        const nz = Number(z);
+        if (z === '' || isNaN(nz)) throw new Error('place: coordinates must be numbers');
+        p.z = nz;
+      }
+      r.placement = clone(p);
+      logger.info('place', `place ${pos.join(' ')}`);
+      return res([`${r.spirit.name} @ ${JSON.stringify(p)}`], p);
+    },
     rune(c, pos) {
       const sub = pos[0];
       const m = mantleOrThrow();
@@ -92,6 +121,7 @@ module.exports = (deps) => {
       for (let i = 0; i < n && ctx.undoStack.length; i++) {
         ctx.redoStack.push({ mantles: clone(state.mantles), active: clone(state.active), label: 'redo' });
         const snap = ctx.undoStack.pop();
+        overlayPlacements(snap.mantles, state.mantles);
         state.mantles = snap.mantles; state.active = snap.active; done++;
       }
       return res([`undid ${done} step(s)`]);
@@ -102,9 +132,25 @@ module.exports = (deps) => {
       for (let i = 0; i < n && ctx.redoStack.length; i++) {
         ctx.undoStack.push({ mantles: clone(state.mantles), active: clone(state.active), label: 'undo' });
         const snap = ctx.redoStack.pop();
+        overlayPlacements(snap.mantles, state.mantles);
         state.mantles = snap.mantles; state.active = snap.active; done++;
       }
       return res([`redid ${done} step(s)`]);
     },
   };
+
+  // The view slice (SPEC §3.2/§6): placement is OUTSIDE the undo slice. Before a
+  // snapshot lands, carry each surviving rune's CURRENT placement into it
+  // (matched by mantle name + rune name), so undo/redo never moves what the
+  // user placed. Runes only in the snapshot keep their snapshot placement.
+  function overlayPlacements(incoming, current) {
+    for (const im of incoming) {
+      const cm = current.find(m => m.name === im.name);
+      if (!cm) continue;
+      for (const ir of im.runes) {
+        const cr = cm.runes.find(r => r.spirit.name === ir.spirit.name);
+        if (cr) ir.placement = cr.placement ? clone(cr.placement) : null;
+      }
+    }
+  }
 };

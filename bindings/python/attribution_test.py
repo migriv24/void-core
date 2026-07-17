@@ -62,6 +62,19 @@ def main() -> int:
     assert not vc.dispatch("set nosuchrune x y")["ok"]
     assert len(vc.dispatch("log")["data"]) == n
 
+    # the view slice (SPEC §6): `place` rides the spine (logged, attributed)
+    # but takes NO undo frame, and its query form stays off the spine
+    assert vc.dispatch("config set actor human:kris")["ok"]
+    frames = len(vc.dispatch("history")["data"])
+    assert vc.dispatch("place riff 10 20")["ok"]
+    recs = vc.dispatch("log")["data"]
+    last = [r for r in recs if r["op"] == "place"][-1]
+    assert last["msg"] == "place riff 10 20" and last["who"] == "human:kris"
+    assert len(vc.dispatch("history")["data"]) == frames, "place must not push undo"
+    n = len(vc.dispatch("log")["data"])
+    assert vc.dispatch("place riff")["data"] == {"x": 10, "y": 20}
+    assert len(vc.dispatch("log")["data"]) == n, "place query stays off the spine"
+
     # clearing the actor stops attribution
     assert vc.dispatch('config set actor ""')["ok"]
     assert vc.dispatch("set riff value E4")["ok"]
@@ -70,7 +83,7 @@ def main() -> int:
 
     vc.close()
     print("ATTRIBUTION: OK (who on log records, history suffix, mutation spine, "
-          "batch-once, undo/redo, actor lifecycle)")
+          "batch-once, undo/redo, actor lifecycle, place on-spine/no-frame)")
     return 0
 
 

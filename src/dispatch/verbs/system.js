@@ -49,7 +49,7 @@ module.exports = (deps) => {
       return res([
         'Void Core commands (see ARCHITECTURE.md §4):',
         ' read:    describe ls tree get find cat status diff history glyphs axes mantles domain validate where',
-        ' mutate:  set facet tag rune mantle bind bindings unbind undo redo batch',
+        ' mutate:  set facet tag place rune mantle bind bindings unbind undo redo batch',
         ' life:    preview save deploy build revert',
         ' scripts: script run|ls|show|new|set',
         ' system:  log use config export import help version exit',

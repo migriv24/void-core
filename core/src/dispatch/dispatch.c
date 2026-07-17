@@ -30,6 +30,20 @@ static int is_mutating(const vc_argv *a) {
   return 0;
 }
 
+/* View-slice mutations (SPEC §3.2/§6/§7 `place`): on the mutation spine
+ * (logged) but NOT undoable — no snapshot, no history frame. A bare
+ * `place <ref>` (possibly with a `--flag` like the capture-appended --json)
+ * is a query and stays off the spine; coordinates or --clear make it a write. */
+static int is_view_mutation(const vc_argv *a) {
+  if (strcmp(a->items[0], "place") || a->count < 3) return 0;
+  for (int i = 2; i < a->count; i++) {
+    if (!strcmp(a->items[i], "--clear")) return 1;
+    if (a->items[i][0] == '-' && a->items[i][1] == '-') continue;
+    return 1; /* a coordinate token */
+  }
+  return 0;
+}
+
 /* ── the router ── */
 cJSON *vc_dispatch_json(VC_Manager *m, const char *command) {
   vc_argv a = vc_argv_split(command);
@@ -75,6 +89,10 @@ cJSON *vc_dispatch_json(VC_Manager *m, const char *command) {
     } else {
       vc_undo_frame_free(&snap);
     }
+  } else if (is_view_mutation(&a) && !m->suppress_undo &&
+             cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(res, "ok"))) {
+    /* view slice: spine-logged like any mutation, but no undo frame */
+    vc_log(m, "INFO", v, "%s", command);
   }
 
   vc_argv_free(&a);

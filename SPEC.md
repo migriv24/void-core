@@ -95,13 +95,19 @@ All persistent working state is one serializable document:
   "facets":  { "who":"", "what":"", "when":"", "where":"", "why":"", "how":"" },
   "tags":    ["science", "outcome:concepts"],
   "content": { /* glyph-specific; core does NOT interpret it */ },
-  "placement": null,                   // optional explicit position (reserved)
+  "placement": null,                   // optional explicit position — the VIEW SLICE (§6)
   "relations": []                      // optional; reserved
 }
 ```
 - The six **facets** are always present (may be empty). They are uniform textual
   metadata so any rune can be described/reasoned about by a human or LLM.
 - `content` is opaque to the core; only the rune's **glyph** (§3.3) interprets it.
+- `placement` is the **view slice**: where a rune sits in a spatial view
+  (`null`, or `{"x":n,"y":n}` / `{"x":n,"y":n,"z":n}`), written by the `place`
+  verb (§7.2). It is model state (it serializes with the rune) but **not
+  undoable** state — see §6. Apps MUST use `placement`/`place` for positions
+  rather than smuggling them into `content`, so that undo never pops a *move*
+  when the user expects it to pop an *edit*.
 - Hydrating a partial/legacy rune MUST fill missing fields with the defaults above
   and MUST reject a rune with no `spirit`.
 
@@ -268,6 +274,17 @@ One dispatcher backs the CLI, GUI, and script runner.
 mantles+active) *before* mutating; the redo stack is cleared on new mutation;
 the undo stack is bounded (reference impl: 200).
 
+**The view slice:** `rune.placement` (§3.2) is carved out of the undo slice.
+`place` (§7.2) mutates it and is logged on the mutation spine (§9), but pushes
+**no** undo frame, and `undo`/`redo` MUST NOT change the placement of a rune
+that survives the operation (restoring a snapshot carries each surviving
+rune's *current* placement over, matched by mantle name + rune name). A rune
+that only exists in the restored snapshot (e.g. its removal was undone) comes
+back with its snapshot placement. Exception: a failed `batch` rolls back
+placements written inside it — atomicity of the failed batch outranks the
+carve-out. Rationale: users undoing expect to pop *edits*, not *moves* (a
+node-editor lesson); view state must also never pollute edit history.
+
 **Threading contract:** a dispatcher instance (a `VC_Manager` in the C core) is
 **not thread-safe** — it holds one mutable state document and unsynchronized
 undo/redo stacks. Hosts MUST serialize all calls that take the same instance
@@ -355,6 +372,13 @@ expects.)
 | `bindings [<rune>] [--mantle m]` / `unbind <id\|name>` | list / remove bindings |
 | `undo [N]` / `redo [N]` | walk the undo/redo stacks |
 | `batch '<json-array>'` | apply a JSON array of command strings **atomically** (rollback on any failure) as **one undo frame**. The payload is inline — the core does no file I/O (§9) |
+
+**View (mutation spine, NOT undoable — the view slice, §6):**
+| verb | meaning |
+|---|---|
+| `place <rune>` | read the rune's `placement` (`data` = value or `null`); a query — not logged |
+| `place <rune> <x> <y> [<z>]` | set `placement` to `{"x":n,"y":n[,"z":n]}`; single rune (no `@`-multi); logged, no undo frame |
+| `place <rune> --clear` | set `placement` back to `null`; logged, no undo frame |
 
 **Lifecycle:**
 | verb | meaning |
@@ -475,6 +499,8 @@ oracle, `planned` for the C core, and *not* required for reference conformance:
   (`INFO`, op = the verb, msg = the full command), so the log is a complete,
   attributable record of what changed the state. `batch` logs once (its
   sub-commands are inside that frame); `undo`/`redo` log their own application.
+  View-slice mutations (`place`, §6) are on the spine like any other mutation —
+  attributable, auditable — despite taking no undo frame.
   - **Hormiga note:** Hormiga already owns a logger, an undo/redo command stack,
     and a tag store. A conforming Hormiga implementation MUST bind the dispatcher
     onto those existing facilities rather than run a second copy (see

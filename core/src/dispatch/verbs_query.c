@@ -20,7 +20,7 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
   } else if (!strcmp(v, "help")) {
     const char *verbs =
         "version help glyphs mantles mantle use where rune ls find describe get "
-        "set setjson tag facet axes cat tree validate export undo redo history "
+        "set setjson tag facet place axes cat tree validate export undo redo history "
         "status diff revert save build deploy preview effect log config "
         "bind bindings unbind batch relate unrelate related rule script";
     res = res_make(1);

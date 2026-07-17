@@ -64,12 +64,42 @@ void vc_undo_commit(VC_Manager *m, vc_undo_frame *snap) {
   }
 }
 
+/* The view slice (SPEC §3.2/§6): `placement` is OUTSIDE the undo slice. Before a
+ * snapshot is restored, carry each surviving rune's CURRENT placement into the
+ * incoming mantles (matched by mantle name + rune name), so undo/redo never
+ * moves what the user placed. A rune only in the snapshot (recreated by the
+ * restore) keeps its snapshot placement — better than losing it. */
+static void placement_overlay(cJSON *incoming, cJSON *current) {
+  cJSON *im = NULL;
+  cJSON_ArrayForEach(im, incoming) {
+    cJSON *cm = NULL, *cur_mantle = NULL;
+    cJSON_ArrayForEach(cm, current) {
+      if (!strcmp(vc_mantle_name(cm), vc_mantle_name(im))) { cur_mantle = cm; break; }
+    }
+    if (!cur_mantle) continue;
+    cJSON *ir = NULL;
+    cJSON_ArrayForEach(ir, cJSON_GetObjectItemCaseSensitive(im, "runes")) {
+      cJSON *cr = NULL, *cur_rune = NULL;
+      cJSON_ArrayForEach(cr, cJSON_GetObjectItemCaseSensitive(cur_mantle, "runes")) {
+        if (!strcmp(vc_rune_name(cr), vc_rune_name(ir))) { cur_rune = cr; break; }
+      }
+      if (!cur_rune) continue;
+      cJSON *p = cJSON_GetObjectItemCaseSensitive(cur_rune, "placement");
+      cJSON *dup = p ? cJSON_Duplicate(p, 1) : cJSON_CreateNull();
+      if (!cJSON_ReplaceItemInObjectCaseSensitive(ir, "placement", dup))
+        cJSON_AddItemToObject(ir, "placement", dup);
+    }
+  }
+}
+
 /* Restore `f`'s snapshot into state, after stashing the current state onto
  * `other` so the move is reversible. Consumes f's cJSON. */
 static void apply_frame(VC_Manager *m, vc_undo_frame *f, vc_undo_frame **other,
                         int *other_count, int *other_cap) {
   vc_undo_frame cur = vc_undo_capture(m, f->label);
   stack_push(other, other_count, other_cap, cur);
+  placement_overlay(f->mantles,
+                    cJSON_GetObjectItemCaseSensitive(m->state, "mantles"));
   cJSON_ReplaceItemInObjectCaseSensitive(m->state, "mantles", f->mantles);
   cJSON_ReplaceItemInObjectCaseSensitive(m->state, "active", f->active);
   f->mantles = NULL; /* ownership moved into state */

@@ -408,6 +408,69 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       free(tg);
     }
 
+  } else if (!strcmp(v, "place")) {
+    /* SPEC §3.2/§6/§7 — the view slice:
+     *   place <ref>                  -> read placement (query; data = value|null)
+     *   place <ref> <x> <y> [<z>]   -> set {"x":n,"y":n[,"z":n]}
+     *   place <ref> --clear          -> null
+     * Single rune only (a position is per-rune; no @-multi). Mutates the view
+     * slice: the router logs it on the mutation spine but takes NO undo frame,
+     * and undo/redo never changes a surviving rune's placement (undo.c). */
+    cJSON *mt = need_mantle(state, &err);
+    if (!mt) {
+      res = err;
+    } else if (a.count < 2) {
+      res = res_fail("usage: place <rune> [<x> <y> [<z>] | --clear]");
+    } else {
+      cJSON *r = vc_mantle_find_rune(mt, a.items[1]);
+      /* Collect coordinate tokens past any `--flag` (a `$(…)` capture appends
+       * --json; same pass-through convention as `ls`). Negative coords ("-5")
+       * are single-dash and still count. */
+      int clear = 0, bad = 0, ncoord = 0;
+      double xyz[3];
+      for (int i = 2; i < a.count; i++) {
+        if (!strcmp(a.items[i], "--clear")) { clear = 1; continue; }
+        if (a.items[i][0] == '-' && a.items[i][1] == '-') continue;
+        if (ncoord >= 3) { bad = 1; break; }
+        char *end = NULL;
+        xyz[ncoord] = strtod(a.items[i], &end);
+        if (!end || end == a.items[i] || *end != 0) { bad = 1; break; }
+        ncoord++;
+      }
+      if (!r) {
+        res = res_fail("no such rune: %s", a.items[1]);
+      } else if (clear && ncoord == 0 && !bad) {
+        cJSON *nul = cJSON_CreateNull();
+        if (!cJSON_ReplaceItemInObjectCaseSensitive(r, "placement", nul))
+          cJSON_AddItemToObject(r, "placement", nul);
+        res = res_make(1);
+        res_line(res, "%s placement cleared", vc_rune_name(r));
+      } else if (ncoord == 0 && !bad && !clear) { /* query */
+        cJSON *p = cJSON_GetObjectItemCaseSensitive(r, "placement");
+        char *ps = (p && !cJSON_IsNull(p)) ? cJSON_PrintUnformatted(p) : NULL;
+        res = res_make(1);
+        res_line(res, "%s @ %s", vc_rune_name(r), ps ? ps : "(unplaced)");
+        free(ps);
+        res_set_data(res, p ? cJSON_Duplicate(p, 1) : cJSON_CreateNull());
+      } else if (bad || ncoord == 1 || clear) {
+        res = res_fail("usage: place <rune> [<x> <y> [<z>] | --clear] "
+                       "(coordinates must be numbers)");
+      } else {
+        cJSON *p = cJSON_CreateObject();
+        cJSON_AddNumberToObject(p, "x", xyz[0]);
+        cJSON_AddNumberToObject(p, "y", xyz[1]);
+        if (ncoord == 3) cJSON_AddNumberToObject(p, "z", xyz[2]);
+        cJSON *dup = cJSON_Duplicate(p, 1);
+        if (!cJSON_ReplaceItemInObjectCaseSensitive(r, "placement", dup))
+          cJSON_AddItemToObject(r, "placement", dup);
+        char *ps = cJSON_PrintUnformatted(p);
+        res = res_make(1);
+        res_line(res, "%s @ %s", vc_rune_name(r), ps ? ps : "");
+        free(ps);
+        res_set_data(res, p);
+      }
+    }
+
   }
   return res;
 }
