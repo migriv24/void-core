@@ -12,6 +12,12 @@
  *   not  := ("NOT"|"!") not | atom
  *   atom := "(" or ")" | TAG
  * Operators are case-insensitive. An empty expression matches all runes.
+ *
+ * Tokenization matches the JS oracle (src/tags/tags.js): `&&`, `||`, `!` are
+ * operators only at a token boundary; inside a word they are ordinary tag
+ * characters (so `a&b` is ONE tag atom, not `a AND b`). Only whitespace and
+ * parentheses split a word. A lone `&` or `|` is therefore a (never-matching)
+ * tag, never a crash — the previous tokenizer looped forever on it.
  */
 #include "vc_internal.h"
 #include <ctype.h>
@@ -67,10 +73,10 @@ static toklist tokenize(const char *expr) {
     if (c == '(' || c == ')' || c == '!') { tok_push(&t, p, 1); p++; continue; }
     if (c == '&' && p[1] == '&') { tok_push(&t, "&&", 2); p += 2; continue; }
     if (c == '|' && p[1] == '|') { tok_push(&t, "||", 2); p += 2; continue; }
+    /* word: runs to whitespace/paren — `&`, `|`, `!` mid-word are tag chars
+     * (oracle behavior; also guarantees the scan always advances). */
     const char *start = p;
-    while (*p && !isspace((unsigned char)*p) && *p != '(' && *p != ')' &&
-           *p != '!' && *p != '&' && *p != '|')
-      p++;
+    while (*p && !isspace((unsigned char)*p) && *p != '(' && *p != ')') p++;
     tok_push(&t, start, (int)(p - start));
   }
   return t;

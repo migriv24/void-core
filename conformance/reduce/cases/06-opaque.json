@@ -1,0 +1,106 @@
+{
+  "case": "06-opaque",
+  "description": "Opaque freezing: the same erasure redex as case 02, but `era` is marked opaque (opaque accepts glyph names or agent ids). No rule fires; the net is returned unchanged.",
+  "spec": {
+    "signatures": {
+      "era": 0,
+      "leaf": 0
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "era",
+          "era"
+        ],
+        "rule": "annihilate"
+      }
+    ]
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "e1"
+        },
+        "glyph": "era",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "e2"
+        },
+        "glyph": "era",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "bystander"
+        },
+        "glyph": "leaf",
+        "content": {
+          "note": "A4"
+        },
+        "tags": [
+          "keep"
+        ]
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "e1",
+          "to": "e2",
+          "relation": "0:0"
+        }
+      ]
+    }
+  },
+  "opaque": [
+    "era"
+  ],
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "era",
+          {},
+          []
+        ],
+        [
+          "era",
+          {},
+          []
+        ],
+        [
+          "leaf",
+          {
+            "note": "A4"
+          },
+          [
+            "keep"
+          ]
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "era",
+            0
+          ],
+          [
+            "era",
+            0
+          ]
+        ]
+      ],
+      "free": [
+        [
+          "leaf",
+          0
+        ]
+      ]
+    }
+  }
+}

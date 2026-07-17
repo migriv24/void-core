@@ -7,11 +7,91 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Scalar coercion for `config set`, mirroring the JS oracle's coerce():
+ * "true"/"false" -> bool; a token that starts -?digit and parses fully as a
+ * number -> number; anything else stays a string. */
+static cJSON *coerce_scalar(const char *s) {
+  if (!strcmp(s, "true")) return cJSON_CreateTrue();
+  if (!strcmp(s, "false")) return cJSON_CreateFalse();
+  const char *q = (*s == '-') ? s + 1 : s;
+  if (isdigit((unsigned char)*q)) {
+    char *end = NULL;
+    double d = strtod(s, &end);
+    if (end && end != s && *end == 0) return cJSON_CreateNumber(d);
+  }
+  return cJSON_CreateString(s);
+}
+
+/* Value -> display string (malloc'd; caller frees). Strings print bare (no
+ * quotes), bools as true/false, missing/null as "", numbers via cJSON. */
+static char *scalar_str(const cJSON *val) {
+  if (!val || cJSON_IsNull(val)) { char *z = (char *)malloc(1); if (z) *z = 0; return z; }
+  if (cJSON_IsString(val)) {
+    size_t n = strlen(val->valuestring) + 1;
+    char *z = (char *)malloc(n);
+    if (z) memcpy(z, val->valuestring, n);
+    return z;
+  }
+  return cJSON_PrintUnformatted(val);
+}
+
 cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
   cJSON *res = NULL;
   cJSON *err = NULL;
   (void)m; (void)state; (void)a; (void)v; (void)err;
   if (0) {
+  } else if (!strcmp(v, "config")) {
+    /* SPEC §7 system family: config | config get <k> | config set <k> <v...>.
+     * Host/session meta (state.config) — not part of the undoable mantle slice
+     * (matches the JS oracle: no undo frame), so a live meta change (e.g. a
+     * DAW's bpm) never disturbs undo history. */
+    cJSON *cfg = cJSON_GetObjectItemCaseSensitive(state, "config");
+    if (a.count >= 2 && !strcmp(a.items[1], "set")) {
+      if (a.count < 3) {
+        res = res_fail("usage: config set <key> <value>");
+      } else {
+        size_t len = 1;
+        for (int i = 3; i < a.count; i++) len += strlen(a.items[i]) + 1;
+        char *joined = (char *)malloc(len);
+        joined[0] = 0;
+        for (int i = 3; i < a.count; i++) {
+          if (i > 3) strcat(joined, " ");
+          strcat(joined, a.items[i]);
+        }
+        cJSON *val = coerce_scalar(joined);
+        cJSON_DeleteItemFromObjectCaseSensitive(cfg, a.items[2]);
+        cJSON_AddItemToObject(cfg, a.items[2], val);
+        char *vs = scalar_str(val);
+        res = res_make(1);
+        res_line(res, "config %s = %s", a.items[2], vs ? vs : "");
+        free(vs);
+        free(joined);
+      }
+    } else if (a.count >= 2 && !strcmp(a.items[1], "get")) {
+      cJSON *val = a.count >= 3
+                       ? cJSON_GetObjectItemCaseSensitive(cfg, a.items[2])
+                       : NULL;
+      char *vs = scalar_str(val);
+      res = res_make(1);
+      res_line(res, "%s", vs ? vs : "");
+      free(vs);
+      res_set_data(res, val ? cJSON_Duplicate(val, 1) : cJSON_CreateNull());
+    } else if (a.count >= 2) {
+      res = res_fail("usage: config [get <key> | set <key> <value>]");
+    } else {
+      res = res_make(1);
+      int n = 0;
+      cJSON *it = NULL;
+      cJSON_ArrayForEach(it, cfg) {
+        char *vs = scalar_str(it);
+        res_line(res, "%s = %s", it->string, vs ? vs : "");
+        free(vs);
+        n++;
+      }
+      if (n == 0) res_line(res, "(config empty)");
+      res_set_data(res, cJSON_Duplicate(cfg, 1));
+    }
+
   } else if (!strcmp(v, "use")) {
     if (a.count < 2 || !strcmp(a.items[1], "/")) {
       /* SPEC §7: `use` with no argument (or `/`) deactivates — back to the

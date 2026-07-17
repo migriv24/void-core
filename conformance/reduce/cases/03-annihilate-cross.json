@@ -1,0 +1,165 @@
+{
+  "case": "03-annihilate-cross",
+  "description": "Annihilation at arity 2: a same-glyph active pair vanishes and the external partners of matching aux ports are cross-linked, A(i)<->B(i). Here x's aux partners (p1, p2) end up wired to y's (q1, q2): p1-q1 and p2-q2, each 0:0.",
+  "spec": {
+    "signatures": {
+      "con": 2,
+      "leaf": 0
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "con",
+          "con"
+        ],
+        "rule": "annihilate"
+      }
+    ]
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "x"
+        },
+        "glyph": "con",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "y"
+        },
+        "glyph": "con",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "p1"
+        },
+        "glyph": "leaf",
+        "content": {
+          "n": 1
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "p2"
+        },
+        "glyph": "leaf",
+        "content": {
+          "n": 2
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "q1"
+        },
+        "glyph": "leaf",
+        "content": {
+          "n": 3
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "q2"
+        },
+        "glyph": "leaf",
+        "content": {
+          "n": 4
+        },
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "x",
+          "to": "y",
+          "relation": "0:0"
+        },
+        {
+          "from": "x",
+          "to": "p1",
+          "relation": "1:0"
+        },
+        {
+          "from": "x",
+          "to": "p2",
+          "relation": "2:0"
+        },
+        {
+          "from": "y",
+          "to": "q1",
+          "relation": "1:0"
+        },
+        {
+          "from": "y",
+          "to": "q2",
+          "relation": "2:0"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "leaf",
+          {
+            "n": 1
+          },
+          []
+        ],
+        [
+          "leaf",
+          {
+            "n": 2
+          },
+          []
+        ],
+        [
+          "leaf",
+          {
+            "n": 3
+          },
+          []
+        ],
+        [
+          "leaf",
+          {
+            "n": 4
+          },
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "leaf",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "leaf",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ]
+      ],
+      "free": []
+    }
+  }
+}

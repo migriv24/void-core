@@ -1,0 +1,246 @@
+{
+  "case": "04-commute-grid",
+  "description": "Commutation: dup(2) meets con(2) principal-to-principal. The pair is replaced by 2 con copies (principals to dup's external aux partners) and 2 dup copies (principals to con's), interconnected in a 2x2 grid of aux wires. Copies inherit the original's content but start tagless (rule-created agents carry no tags).",
+  "spec": {
+    "signatures": {
+      "dup": 2,
+      "con": 2,
+      "leaf": 0
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "dup",
+          "con"
+        ],
+        "rule": "commute"
+      }
+    ]
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "d"
+        },
+        "glyph": "dup",
+        "content": {
+          "k": "dv"
+        },
+        "tags": [
+          "orig:dup"
+        ]
+      },
+      {
+        "spirit": {
+          "name": "c"
+        },
+        "glyph": "con",
+        "content": {
+          "k": "cv"
+        },
+        "tags": [
+          "orig:con"
+        ]
+      },
+      {
+        "spirit": {
+          "name": "L1"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "L2"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "L3"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "L4"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "d",
+          "to": "c",
+          "relation": "0:0"
+        },
+        {
+          "from": "d",
+          "to": "L1",
+          "relation": "1:0"
+        },
+        {
+          "from": "d",
+          "to": "L2",
+          "relation": "2:0"
+        },
+        {
+          "from": "c",
+          "to": "L3",
+          "relation": "1:0"
+        },
+        {
+          "from": "c",
+          "to": "L4",
+          "relation": "2:0"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "con",
+          {
+            "k": "cv"
+          },
+          []
+        ],
+        [
+          "con",
+          {
+            "k": "cv"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "dv"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "dv"
+          },
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "con",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "con",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            2
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "dup",
+            2
+          ]
+        ],
+        [
+          [
+            "dup",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "dup",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ]
+      ],
+      "free": []
+    }
+  }
+}

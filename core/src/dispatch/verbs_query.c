@@ -21,7 +21,7 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
     const char *verbs =
         "version help glyphs mantles mantle use where rune ls find describe get "
         "set setjson tag facet axes cat tree validate export undo redo history "
-        "status diff revert save build deploy preview effect log "
+        "status diff revert save build deploy preview effect log config "
         "bind bindings unbind batch relate unrelate related rule script";
     res = res_make(1);
     res_line(res, "verbs: %s", verbs);
@@ -48,6 +48,12 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
     cJSON *dom = active ? cJSON_GetObjectItemCaseSensitive(active, "domain") : NULL;
     res_line(res, "mantle: %s", mt ? vc_mantle_name(mt) : "(none)");
     res_line(res, "domain: %s", cJSON_IsString(dom) ? dom->valuestring : "(none)");
+    cJSON *d = cJSON_CreateObject(); /* structured answer, not lines-only (VLS) */
+    if (mt) cJSON_AddStringToObject(d, "mantle", vc_mantle_name(mt));
+    else cJSON_AddNullToObject(d, "mantle");
+    if (cJSON_IsString(dom)) cJSON_AddStringToObject(d, "domain", dom->valuestring);
+    else cJSON_AddNullToObject(d, "domain");
+    res_set_data(res, d);
 
   } else if (!strcmp(v, "glyphs")) {
     res = res_make(1);

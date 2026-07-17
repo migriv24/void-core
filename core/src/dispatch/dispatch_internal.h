@@ -5,8 +5,6 @@
 #define VC_DISPATCH_INTERNAL_H
 #include "vc_internal.h"
 
-#define VC_VERSION_STR "0.2.1"
-
 extern const char *vc_facet_keys[6];
 
 /* result builders + shared helpers (dispatch_util.c) */

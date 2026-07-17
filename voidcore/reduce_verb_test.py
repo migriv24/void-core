@@ -50,6 +50,17 @@ def main() -> int:
     except ValueError:
         pass
 
+    # ── swap flavor: parses on annihilate, rejected on commute ─────────────────────
+    reducer_from_spec({"signatures": {"g": 2},
+                       "rules": [{"glyphs": ["g", "g"], "rule": "annihilate",
+                                  "swap": True}]})
+    try:
+        reducer_from_spec({"rules": [{"glyphs": ["a", "b"], "rule": "commute",
+                                      "swap": True}]})
+        assert False, "expected ValueError on swap with commute"
+    except ValueError:
+        pass
+
     vc = VoidCore(state=mantle_state())
     for g in ("con", "leaf"):
         vc.register_glyph({"glyph": g, "label": g, "editor": "form", "fields": []})

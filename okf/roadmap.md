@@ -68,6 +68,18 @@ Direction set 2026-07-04 in [the open application](/design/open-application-desi
 
 # Deferred / research
 
+* **Latin-OS (external, far horizon)** — a Void Core-based operating system
+  (`../LatinOS/okf/`, its own project + OKF; first named in Void Maiz's horizons):
+  compositor scene graph as a mantle, no central scheduler, holidays as the
+  inter-device/inter-client protocol, HVM2 as candidate root runtime. **Not a Void
+  Core build target** — everything it needs is already on this roadmap for other
+  reasons (open-application phases, C-ABI reduce, host probe). Its one standing
+  constraint on us, in force now: **keep the [holiday](/concepts/holiday.md)
+  protocol-shaped** — no design may assume a single device, a single client, or a
+  central scheduler ("does this still work when the other end of the edge is
+  another person's machine?"). Its HVM2-backed implementation of the Reduce
+  contract (`conformance/reduce/`) would double as our C-ABI-reduce answer if it
+  pans out.
 * **Inter-application communication** — a protocol layer for the multiple apps built on
   Void Core to talk to each other (capability discovery, message/event passing, shared
   vocabulary) *on top of* the [OKF](/components/okf-engine.md), which already gives them a

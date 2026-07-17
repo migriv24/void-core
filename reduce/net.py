@@ -39,6 +39,8 @@ class Agent:
     glyph: str
     arity: int = 0                       # number of auxiliary ports (principal is extra)
     content: dict = field(default_factory=dict)
+    tags: list = field(default_factory=list)  # carried through to_net/from_net verbatim;
+                                              # rule-generated agents start tagless
 
     def ports(self) -> list[Port]:
         return [(self.id, i) for i in range(self.arity + 1)]
@@ -90,7 +92,7 @@ class Net:
 
     def copy(self) -> "Net":
         n = Net()
-        n.agents = {k: Agent(v.id, v.glyph, v.arity, dict(v.content))
+        n.agents = {k: Agent(v.id, v.glyph, v.arity, dict(v.content), list(v.tags))
                     for k, v in self.agents.items()}
         n.link = dict(self.link)
         return n
@@ -123,8 +125,9 @@ class Net:
         """An id-independent fingerprint of the net's *shape* (glyphs, content, wiring),
         so two reductions that differ only in generated agent ids compare equal. Used by
         the confluence law test."""
-        # order-independent multiset of (glyph, sorted content items)
-        agent_sig = sorted((a.glyph, tuple(sorted((k, repr(v)) for k, v in a.content.items())))
+        # order-independent multiset of (glyph, sorted content items, sorted tags)
+        agent_sig = sorted((a.glyph, tuple(sorted((k, repr(v)) for k, v in a.content.items())),
+                            tuple(sorted(a.tags)))
                            for a in self.agents.values())
         # wires as glyph-keyed endpoints (drop ids); undirected, so sort each pair
         def endp(p: Port):
@@ -146,7 +149,8 @@ def to_net(mantle: dict, signatures: dict[str, int]) -> Net:
     for rune in mantle.get("runes", []):
         name = rune["spirit"]["name"]
         glyph = rune.get("glyph", "")
-        net.add(Agent(name, glyph, signatures.get(glyph, 0), dict(rune.get("content") or {})))
+        net.add(Agent(name, glyph, signatures.get(glyph, 0),
+                      dict(rune.get("content") or {}), list(rune.get("tags") or [])))
     for e in mantle.get("layout", {}).get("edges", []):
         m = _REL.match(str(e.get("relation", "")))
         if not m:
@@ -161,12 +165,14 @@ def to_net(mantle: dict, signatures: dict[str, int]) -> Net:
 
 def from_net(net: Net, *, mantle_name: str = "reduced") -> dict:
     """Project a Net back to a mantle dict (the derived output). Each wire becomes a
-    `layout.edge` with `relation="i:j"`. Undirected wires are emitted once."""
+    `layout.edge` with `relation="i:j"`. Undirected wires are emitted once. Agent
+    `tags` (carried in by `to_net`) come back on the runes, so a to_net/from_net
+    round-trip preserves them; agents created *by rules* during reduction have none."""
     runes = [{
         "spirit": {"id": f"rune_{a.id}", "name": a.id},
         "glyph": a.glyph,
         "facets": {k: "" for k in ("who", "what", "when", "where", "why", "how")},
-        "tags": [], "content": dict(a.content), "placement": None, "relations": [],
+        "tags": list(a.tags), "content": dict(a.content), "placement": None, "relations": [],
     } for a in net.agents.values()]
     edges = []
     for p, q in net.link.items():

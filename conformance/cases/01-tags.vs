@@ -47,4 +47,16 @@ assert $(get beta bulk --json) == yes
 get gamma bulk
 assert !$?
 
+# a lone or mid-word `&`/`|` is a tag character, not an operator (oracle
+# tokenization) — must not crash, and the malformed tag simply matches nothing
+foreach r in (ls --tag "alpha&glyph:group") { set $r amp yes }
+get alpha amp
+assert !$?
+foreach r in (ls --tag "alpha & beta") { set $r amp2 yes }
+get alpha amp2
+assert !$?
+foreach r in (ls --tag "alpha | beta") { set $r pipe yes }
+get alpha pipe
+assert !$?
+
 return 01-tags-ok

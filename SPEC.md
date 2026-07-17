@@ -227,6 +227,10 @@ mantle's `layout.edges`. `relation` is a free label (may be `""`), `weight` a nu
   ```
   `TAG` matches if it is in the rune's tag set (including its name). Operators are
   case-insensitive. An empty expression matches all runes.
+  Tokenization: only whitespace and parentheses split a word; `&&`, `||`, `!` are
+  operators **at a token boundary only** — mid-word they are ordinary tag
+  characters (`a&b` is one TAG atom, not `a AND b`), so a stray `&`/`|` is a
+  never-matching tag, never an error or a crash.
 - **One evaluator, exposed over the FFI.** The C core exports the grammar as
   `vc_tag_match(expr, tags_json) -> 1|0|-1` (`tags_json` = a JSON array of tag
   strings; include the entity's name for name-as-tag matching; stateless,
@@ -459,6 +463,18 @@ oracle, `planned` for the C core, and *not* required for reference conformance:
   `[ISO-timestamp] LEVEL op: message`, level ∈ `INFO|WARN|ERROR`. Long operations
   (deploy/build/preview) MUST stream line-by-line, persist to a log file, and be
   retrievable via `log`. The copied log is the unit handed to an agent for repair.
+- **Attribution (`who`)** — session-scoped, via the config tier: when
+  `config.actor` is a non-empty string (`config set actor <name>`), every log
+  record carries a `who` field (line form `[ISO] LEVEL op (who): message`) and
+  every undo frame is stamped with the actor at capture time (`history` shows it
+  as a `[who]` suffix; `history`'s `data` stays a plain label array). With agents
+  and humans sharing one dispatcher seam, the actor says which. Unset/empty actor
+  = no `who` (fully backward compatible). The host log-sink callback signature is
+  unchanged; sinks that need attribution read it from `log` records.
+- **The mutation spine** — every successful top-level mutating command is logged
+  (`INFO`, op = the verb, msg = the full command), so the log is a complete,
+  attributable record of what changed the state. `batch` logs once (its
+  sub-commands are inside that frame); `undo`/`redo` log their own application.
   - **Hormiga note:** Hormiga already owns a logger, an undo/redo command stack,
     and a tag store. A conforming Hormiga implementation MUST bind the dispatcher
     onto those existing facilities rather than run a second copy (see

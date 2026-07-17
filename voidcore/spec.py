@@ -95,11 +95,15 @@ def reducer_from_spec(spec: dict) -> tuple[Reducer, dict]:
     `signatures` (glyph → aux-port count) alongside, since `to_net` needs them.
 
         {"signatures": {"con": 2, "dup": 2, "era": 0},
-         "rules": [{"glyphs": ["con", "con"], "rule": "annihilate"},
-                   {"glyphs": ["con", "dup"],  "rule": "commute"}]}
+         "rules": [{"glyphs": ["con", "con"], "rule": "annihilate", "swap": true},
+                   {"glyphs": ["dup", "dup"], "rule": "annihilate"},
+                   {"glyphs": ["con", "dup"], "rule": "commute"}]}
 
-    The conflict guard still applies (≤1 rule per glyph pair → `Reducer.rule` raises on a
-    duplicate). Raises `ValueError` on an unknown rule kind or malformed glyph pair."""
+    `swap` (annihilate only) selects the index-reversed flavor — γγ links mirrored
+    (x_i ≡ y_{n+1-i}), δδ index-straight; the asymmetry is load-bearing in Lafont's
+    calculus. The conflict guard still applies (≤1 rule per glyph pair → `Reducer.rule`
+    raises on a duplicate). Raises `ValueError` on an unknown rule kind, a malformed
+    glyph pair, or `swap` on a non-annihilate rule."""
     if not isinstance(spec, dict):
         raise ValueError("reducer spec must be an object")
     signatures = {str(k): int(v) for k, v in (spec.get("signatures") or {}).items()}
@@ -109,11 +113,15 @@ def reducer_from_spec(spec: dict) -> tuple[Reducer, dict]:
         if not (isinstance(glyphs, (list, tuple)) and len(glyphs) == 2):
             raise ValueError(f"reducer spec rule [{i}]: `glyphs` must be a [a, b] pair")
         kind = item.get("rule")
-        ctor = _REDUCE_RULES.get(kind)
-        if ctor is None:
+        if kind not in _REDUCE_RULES:
             raise ValueError(f"reducer spec rule [{i}]: unknown rule {kind!r} "
                              f"(known: {', '.join(sorted(_REDUCE_RULES))})")
-        reducer.rule(glyphs[0], glyphs[1], ctor())
+        if "swap" in item and kind != "annihilate":
+            raise ValueError(f"reducer spec rule [{i}] ({kind}): `swap` only applies "
+                             f"to annihilate")
+        fn = (annihilate(swap=bool(item.get("swap", False)))
+              if kind == "annihilate" else commute())
+        reducer.rule(glyphs[0], glyphs[1], fn)
     return reducer, signatures
 
 

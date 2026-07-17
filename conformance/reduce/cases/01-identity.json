@@ -1,0 +1,118 @@
+{
+  "case": "01-identity",
+  "description": "No rules: reduce is the identity. The derived net has the same agents (glyph, content, tags), wires, and free ports as the input. Content and tags pass through untouched (the executor never interprets content).",
+  "spec": {
+    "signatures": {
+      "con": 2,
+      "leaf": 0
+    },
+    "rules": []
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "x"
+        },
+        "glyph": "con",
+        "content": {
+          "gain": 0.5
+        },
+        "tags": [
+          "node:x"
+        ]
+      },
+      {
+        "spirit": {
+          "name": "p"
+        },
+        "glyph": "leaf",
+        "content": {
+          "note": "C4"
+        },
+        "tags": [
+          "voice:lead"
+        ]
+      },
+      {
+        "spirit": {
+          "name": "q"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "x",
+          "to": "p",
+          "relation": "1:0"
+        },
+        {
+          "from": "x",
+          "to": "q",
+          "relation": "2:0"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "con",
+          {
+            "gain": 0.5
+          },
+          [
+            "node:x"
+          ]
+        ],
+        [
+          "leaf",
+          {
+            "note": "C4"
+          },
+          [
+            "voice:lead"
+          ]
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ]
+      ],
+      "free": [
+        [
+          "con",
+          0
+        ]
+      ]
+    }
+  }
+}

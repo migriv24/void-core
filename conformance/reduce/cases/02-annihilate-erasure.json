@@ -1,0 +1,82 @@
+{
+  "case": "02-annihilate-erasure",
+  "description": "Annihilation at arity 0 is erasure: two era agents joined principal-to-principal vanish, introducing nothing. The bystander leaf is untouched.",
+  "spec": {
+    "signatures": {
+      "era": 0,
+      "leaf": 0
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "era",
+          "era"
+        ],
+        "rule": "annihilate"
+      }
+    ]
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "e1"
+        },
+        "glyph": "era",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "e2"
+        },
+        "glyph": "era",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "bystander"
+        },
+        "glyph": "leaf",
+        "content": {
+          "note": "A4"
+        },
+        "tags": [
+          "keep"
+        ]
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "e1",
+          "to": "e2",
+          "relation": "0:0"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "leaf",
+          {
+            "note": "A4"
+          },
+          [
+            "keep"
+          ]
+        ]
+      ],
+      "wires": [],
+      "free": [
+        [
+          "leaf",
+          0
+        ]
+      ]
+    }
+  }
+}

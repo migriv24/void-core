@@ -49,9 +49,26 @@ int main(void) {
   run(m, "ls --tag susie OR ralsei");
   run(m, "ls --tag chapter:2 AND NOT ralsei");
   run(m, "ls --tag glyph:dialogue");          /* glyph surfaced as a tag */
+  run(m, "ls --tag susie-intro&glyph:dialogue"); /* mid-word & = tag char; once crashed */
+  run(m, "ls --tag susie & ralsei");             /* lone & = never-matching tag, not a hang */
+  printf("tag_match(a&b) standalone = %d\n\n",
+         vc_tag_match("x&y", "[\"x\",\"y\",\"x&y\"]")); /* -> 1: one atom */
   run(m, "set @chapter:2 reviewed yes");       /* multi-target write */
   run(m, "axes");
   run(m, "find greets");
+
+  /* config verb (SPEC §7 system family): session meta, outside the undo slice */
+  run(m, "config set bpm 140");
+  run(m, "config get bpm");
+  run(m, "config set title \"castle town demo\"");
+  run(m, "config");
+
+  /* attribution (SPEC §9): config.actor stamps who on log records + undo frames */
+  run(m, "config set actor smoke-agent");
+  run(m, "set susie-intro expression grin");
+  run(m, "log --tail 2");     /* -> mutation spine line with (smoke-agent) */
+  run(m, "history --tail 2"); /* -> frame with [smoke-agent] suffix */
+  run(m, "config set actor \"\"");
 
   /* undo/redo (SPEC §6) */
   run(m, "set susie-intro text \"CHANGED LINE\"");

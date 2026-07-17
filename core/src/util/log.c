@@ -41,6 +41,10 @@ void vc_log(VC_Manager *m, const char *level, const char *op, const char *fmt, .
   cJSON_AddStringToObject(rec, "level", level ? level : "INFO");
   cJSON_AddStringToObject(rec, "op", op ? op : "");
   cJSON_AddStringToObject(rec, "msg", msg);
+  /* attribution (SPEC §9): stamp the session actor when one is configured, so
+   * agents and humans sharing one dispatcher seam stay distinguishable */
+  const char *who = m->state ? vc_actor(m->state) : NULL;
+  if (who) cJSON_AddStringToObject(rec, "who", who);
 
   cJSON *buf = vc_log_buffer(m);
   cJSON_AddItemToArray(buf, rec);

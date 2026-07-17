@@ -83,6 +83,9 @@ validate axes status diff history log bindings links related export`
 Mutate: `mantle new` · `use` · `rune new|rm|rename|move|dup` · `set` · `setjson` · `facet` · `tag` ·
 `link` · `unlink` · `relate` · `unrelate` · `rule add|ls|rm|clear` · `undo` · `redo` · `revert` ·
 `batch` · `bind` · `unbind`
+System: `config [get <k> | set <k> <v>]` — session/host meta (`state.config`), scalar-coerced
+(true/false/number/string), **outside the undo slice** (a live `config set` never touches
+undo history)
 Lifecycle / seam: `save` · `deploy` · `build` · `preview` · `effect <op> [args...]`
 (all route through the host effect handler) · `log`
 Scripts: `script run|ls|show|new|set`

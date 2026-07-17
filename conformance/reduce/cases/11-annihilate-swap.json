@@ -1,0 +1,153 @@
+{
+  "case": "11-annihilate-swap",
+  "description": "The index-swapped annihilation flavor (\"swap\": true): gamma~gamma vanishes linking A's aux-i partner to B's aux-(n+1-i) partner — x_i ≡ y_{n+1-i}, the mirrored parallel-arcs picture Lafont draws for γγ (δδ is the index-straight flavor case 03 pins). The asymmetry between the two flavors is load-bearing: with only one, γγ and δδ cannot be distinguished. Boundary partners carry distinct GLYPHS (pa/pb/qa/qb) because canonical wire endpoints are [glyph, port] — a swap-ignoring executor produces pa~qa/pb~qb and fails; correct is pa~qb/pb~qa.",
+  "spec": {
+    "signatures": {
+      "gamma": 2,
+      "pa": 0,
+      "pb": 0,
+      "qa": 0,
+      "qb": 0
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "gamma",
+          "gamma"
+        ],
+        "rule": "annihilate",
+        "swap": true
+      }
+    ]
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "x"
+        },
+        "glyph": "gamma",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "y"
+        },
+        "glyph": "gamma",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "pa"
+        },
+        "glyph": "pa",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "pb"
+        },
+        "glyph": "pb",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "qa"
+        },
+        "glyph": "qa",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "qb"
+        },
+        "glyph": "qb",
+        "content": {},
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "x",
+          "to": "y",
+          "relation": "0:0"
+        },
+        {
+          "from": "x",
+          "to": "pa",
+          "relation": "1:0"
+        },
+        {
+          "from": "x",
+          "to": "pb",
+          "relation": "2:0"
+        },
+        {
+          "from": "y",
+          "to": "qa",
+          "relation": "1:0"
+        },
+        {
+          "from": "y",
+          "to": "qb",
+          "relation": "2:0"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "pa",
+          {},
+          []
+        ],
+        [
+          "pb",
+          {},
+          []
+        ],
+        [
+          "qa",
+          {},
+          []
+        ],
+        [
+          "qb",
+          {},
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "pa",
+            0
+          ],
+          [
+            "qb",
+            0
+          ]
+        ],
+        [
+          [
+            "pb",
+            0
+          ],
+          [
+            "qa",
+            0
+          ]
+        ]
+      ],
+      "free": []
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "case": "12-annihilate-internal-bridge",
+  "description": "Internal redex wire, the bridge outcome (contract DEFAULT — no strict_locality): the con pair is active AND wired x.1<->y.2 internally. Index-straight annihilation's equations (x_i ≡ y_i) chase THROUGH that wire: pl (at x.2) ≡ y.2-slot — internal wire — x.1-slot ≡ y.1's partner ql, so the two external ends bridge into one wire pl~ql. An executor that rejects (old strict behavior) or drops the chain fails this case. Distinct boundary glyphs (pl/ql) make the wiring visible to the canonical form.",
+  "spec": {
+    "signatures": {
+      "con": 2,
+      "pl": 0,
+      "ql": 0
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "con",
+          "con"
+        ],
+        "rule": "annihilate"
+      }
+    ]
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "x"
+        },
+        "glyph": "con",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "y"
+        },
+        "glyph": "con",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "p"
+        },
+        "glyph": "pl",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "q"
+        },
+        "glyph": "ql",
+        "content": {},
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "x",
+          "to": "y",
+          "relation": "0:0"
+        },
+        {
+          "from": "x",
+          "to": "y",
+          "relation": "1:2"
+        },
+        {
+          "from": "x",
+          "to": "p",
+          "relation": "2:0"
+        },
+        {
+          "from": "y",
+          "to": "q",
+          "relation": "1:0"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "pl",
+          {},
+          []
+        ],
+        [
+          "ql",
+          {},
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "pl",
+            0
+          ],
+          [
+            "ql",
+            0
+          ]
+        ]
+      ],
+      "free": []
+    }
+  }
+}

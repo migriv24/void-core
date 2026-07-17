@@ -1,0 +1,42 @@
+{
+  "case": "10-adapter-ports",
+  "description": "The strict mantle adapter: an edge whose relation is not \"i:j\" port indices cannot be placed on specific ports, and the adapter MUST reject it (abstract error kind \"adapter-ports\") instead of guessing. Port order is app knowledge; the net layer takes indices only.",
+  "spec": {
+    "signatures": {
+      "leaf": 1
+    },
+    "rules": []
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "a"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "b"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "a",
+          "to": "b",
+          "relation": "child"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "error": "adapter-ports"
+  }
+}

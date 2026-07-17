@@ -41,9 +41,15 @@ invokes `script run` — so state-document loading is itself exercised by every 
 | `06-batch.vs` | §6, §7 | batch atomicity (rollback on failure), one undo frame per batch |
 | `07-posix.vs` | §7.1 | POSIX aliases as argument-aware desugarings (`mkdir`/`pwd`/`grep`/`man`/`cp`/`mv`/`rm`/`cd`), alias mutations undo like their canonical form, root-`ls` lists mantles, `cd /` deactivates |
 | `08-capture-flags.vs` | §6, §7, §8 | regression (Hormiga handoff 2026-07-03): a trailing flag (`--json`) after a `--tag <expr>` value must not join into the tag expression — direct, `$(…)` capture, and `foreach` paths |
+| `09-config.vs` | §7 | the `config` verb (get/set/list), scalar coercion, and its isolation from the undo slice (regression: VLS handoff 2026-07-06) |
 
 Not covered here (tested elsewhere or host-dependent): the §9 adapter/effect seam
-(`bindings/python/effect_test.py`), the **[seam]** transformation verbs
+(`bindings/python/effect_test.py`), §9 attribution + the mutation spine
+(`bindings/python/attribution_test.py`), the **[seam]** transformation verbs
 (`voidcore/dispatch_test.py` and siblings, per §11), script arguments `$1`/`$@`
 (inline `script set` interpolates `$` before the source is stored), and the §8
 advanced constructs (oracle-only).
+
+**The Reduce executor** has its own language-neutral contract + pure-JSON cases in
+[`reduce/`](reduce/README.md) — for hosts that implement the interaction-net
+executor outside the Python seam.

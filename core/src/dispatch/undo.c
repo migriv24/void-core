@@ -22,6 +22,8 @@ static cJSON *dup_field(cJSON *state, const char *key) {
 vc_undo_frame vc_undo_capture(VC_Manager *m, const char *command) {
   vc_undo_frame f;
   f.label = vc_strdup(command);
+  const char *who = vc_actor(m->state); /* attribution (SPEC §9) */
+  f.who = who ? vc_strdup(who) : NULL;
   f.mantles = dup_field(m->state, "mantles");
   f.active = dup_field(m->state, "active");
   return f;
@@ -30,9 +32,11 @@ vc_undo_frame vc_undo_capture(VC_Manager *m, const char *command) {
 void vc_undo_frame_free(vc_undo_frame *f) {
   if (!f) return;
   free(f->label);
+  free(f->who);
   if (f->mantles) cJSON_Delete(f->mantles);
   if (f->active) cJSON_Delete(f->active);
   f->label = NULL;
+  f->who = NULL;
   f->mantles = NULL;
   f->active = NULL;
 }
@@ -72,6 +76,8 @@ static void apply_frame(VC_Manager *m, vc_undo_frame *f, vc_undo_frame **other,
   f->active = NULL;
   free(f->label);
   f->label = NULL;
+  free(f->who);
+  f->who = NULL;
 }
 
 int vc_undo(VC_Manager *m, int n) {

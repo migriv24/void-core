@@ -1,0 +1,125 @@
+{
+  "case": "08-tags-survive",
+  "description": "Tag fidelity through reduction: agents that survive keep their tags verbatim; agents consumed by a rule take their tags with them; rule-created agents start tagless. Here the con-con pair (tagged) annihilates, the tagged leaves survive.",
+  "spec": {
+    "signatures": {
+      "con": 1,
+      "leaf": 0
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "con",
+          "con"
+        ],
+        "rule": "annihilate"
+      }
+    ]
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "x"
+        },
+        "glyph": "con",
+        "content": {},
+        "tags": [
+          "gone:x"
+        ]
+      },
+      {
+        "spirit": {
+          "name": "y"
+        },
+        "glyph": "con",
+        "content": {},
+        "tags": [
+          "gone:y"
+        ]
+      },
+      {
+        "spirit": {
+          "name": "p"
+        },
+        "glyph": "leaf",
+        "content": {
+          "note": "C4"
+        },
+        "tags": [
+          "node:seq1",
+          "status:live"
+        ]
+      },
+      {
+        "spirit": {
+          "name": "q"
+        },
+        "glyph": "leaf",
+        "content": {
+          "note": "E4"
+        },
+        "tags": [
+          "node:seq2"
+        ]
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "x",
+          "to": "y",
+          "relation": "0:0"
+        },
+        {
+          "from": "x",
+          "to": "p",
+          "relation": "1:0"
+        },
+        {
+          "from": "y",
+          "to": "q",
+          "relation": "1:0"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "leaf",
+          {
+            "note": "C4"
+          },
+          [
+            "node:seq1",
+            "status:live"
+          ]
+        ],
+        [
+          "leaf",
+          {
+            "note": "E4"
+          },
+          [
+            "node:seq2"
+          ]
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "leaf",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ]
+      ],
+      "free": []
+    }
+  }
+}

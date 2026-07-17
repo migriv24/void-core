@@ -1,0 +1,83 @@
+{
+  "case": "09-locality",
+  "description": "The strict-locality mode (the restricted subset, opt-in via \"strict_locality\": true): a rule may only rewire ports leading OUT of the redex. Here the two con agents are wired principal-to-principal AND aux-to-aux, so annihilation's cross-link would reference an internal redex wire; under strict locality the executor MUST reject this (abstract error kind \"locality\") rather than construct the wire. The contract DEFAULT resolves internal redex wires instead — case 13 pins the resolution of this exact net.",
+  "strict_locality": true,
+  "spec": {
+    "signatures": {
+      "con": 2,
+      "leaf": 0
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "con",
+          "con"
+        ],
+        "rule": "annihilate"
+      }
+    ]
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "x"
+        },
+        "glyph": "con",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "y"
+        },
+        "glyph": "con",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "p"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "q"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "x",
+          "to": "y",
+          "relation": "0:0"
+        },
+        {
+          "from": "x",
+          "to": "y",
+          "relation": "1:1"
+        },
+        {
+          "from": "x",
+          "to": "p",
+          "relation": "2:0"
+        },
+        {
+          "from": "y",
+          "to": "q",
+          "relation": "2:0"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "error": "locality"
+  }
+}

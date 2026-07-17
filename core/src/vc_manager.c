@@ -52,6 +52,13 @@ static void vc_state_hydrate(cJSON *s) {
     cJSON_AddItemToObject(active, "domain", cJSON_CreateNull());
 }
 
+const char *vc_actor(cJSON *state) {
+  cJSON *cfg = cJSON_GetObjectItemCaseSensitive(state, "config");
+  cJSON *actor = cfg ? cJSON_GetObjectItemCaseSensitive(cfg, "actor") : NULL;
+  if (cJSON_IsString(actor) && actor->valuestring[0]) return actor->valuestring;
+  return NULL;
+}
+
 cJSON *vc_active_mantle(cJSON *state) {
   cJSON *active = cJSON_GetObjectItemCaseSensitive(state, "active");
   cJSON *mname = active ? cJSON_GetObjectItemCaseSensitive(active, "mantle") : NULL;
@@ -154,4 +161,4 @@ int vc_tag_match(const char *expr, const char *tags_json) {
   return r;
 }
 
-const char *vc_version(void) { return "0.2.1"; }
+const char *vc_version(void) { return VC_VERSION_STR; }

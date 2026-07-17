@@ -1,0 +1,247 @@
+{
+  "case": "05-confluence-combinators",
+  "description": "The full interaction-combinator system (con/dup commute; same-glyph annihilate; era commutes with both, which erases). The net has multiple simultaneous redexes; on the restricted confluent subset the normal form is unique regardless of schedule. `schedules: 8` instructs the runner to verify 8 randomized schedules reach the same canonical form.",
+  "spec": {
+    "signatures": {
+      "con": 2,
+      "dup": 2,
+      "era": 0,
+      "leaf": 0
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "con",
+          "con"
+        ],
+        "rule": "annihilate"
+      },
+      {
+        "glyphs": [
+          "dup",
+          "dup"
+        ],
+        "rule": "annihilate"
+      },
+      {
+        "glyphs": [
+          "era",
+          "era"
+        ],
+        "rule": "annihilate"
+      },
+      {
+        "glyphs": [
+          "con",
+          "dup"
+        ],
+        "rule": "commute"
+      },
+      {
+        "glyphs": [
+          "con",
+          "era"
+        ],
+        "rule": "commute"
+      },
+      {
+        "glyphs": [
+          "dup",
+          "era"
+        ],
+        "rule": "commute"
+      }
+    ]
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "d"
+        },
+        "glyph": "dup",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "c"
+        },
+        "glyph": "con",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "e1"
+        },
+        "glyph": "era",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "e2"
+        },
+        "glyph": "era",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "L1"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "L2"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "d",
+          "to": "c",
+          "relation": "0:0"
+        },
+        {
+          "from": "d",
+          "to": "L1",
+          "relation": "1:0"
+        },
+        {
+          "from": "d",
+          "to": "L2",
+          "relation": "2:0"
+        },
+        {
+          "from": "c",
+          "to": "e1",
+          "relation": "1:0"
+        },
+        {
+          "from": "c",
+          "to": "e2",
+          "relation": "2:0"
+        }
+      ]
+    }
+  },
+  "schedules": 8,
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "con",
+          {},
+          []
+        ],
+        [
+          "con",
+          {},
+          []
+        ],
+        [
+          "era",
+          {},
+          []
+        ],
+        [
+          "era",
+          {},
+          []
+        ],
+        [
+          "era",
+          {},
+          []
+        ],
+        [
+          "era",
+          {},
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "con",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "con",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "era",
+            0
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "era",
+            0
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "era",
+            0
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "era",
+            0
+          ]
+        ]
+      ],
+      "free": []
+    }
+  }
+}

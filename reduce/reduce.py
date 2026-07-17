@@ -25,6 +25,15 @@ rule was registered) and a fresh-id minter, return new agents + new wires. Wires
 the redex's freed auxiliary ports symbolically with `A(i)` / `B(i)` (the *external*
 partner of a's / b's aux port i), or a new agent's port `(id, idx)` directly. This is the
 locality discipline: a rule only rewires the redex's own ports.
+
+An aux port's partner may itself be *inside* the redex (the pair also wired aux-to-aux,
+or an agent's aux wired to its own other aux) — a legal net in full Lafont semantics. By
+default the executor resolves these **internal redex wires** by chasing the wire
+equations through the redex (union-find): a chain with two external ends becomes one
+bridging wire, one external end stays free, and a closed chain (a loop with no agents on
+it) vanishes — the net model cannot represent an agentless wire, so loops are dropped,
+not tracked. `reduce(..., strict_locality=True)` restores the restricted subset's
+rejection (raises with the locality error) for hosts that want the old guarantee.
 """
 from __future__ import annotations
 
@@ -109,7 +118,8 @@ class Reducer:
         return sorted(out)
 
     # ── one rewrite step ─────────────────────────────────────────────────────────
-    def _fire(self, net: Net, a_id: str, b_id: str, fresh: Callable[[], str]) -> None:
+    def _fire(self, net: Net, a_id: str, b_id: str, fresh: Callable[[], str],
+              strict_locality: bool = False) -> None:
         a, b = net.agents[a_id], net.agents[b_id]
         ga, gb, fn = self.rules[frozenset((a.glyph, b.glyph))]
         # present agents to the rule in its registered order
@@ -120,13 +130,20 @@ class Reducer:
             "A": {i: net.partner((a.id, i)) for i in range(1, a.arity + 1)},
             "B": {i: net.partner((b.id, i)) for i in range(1, b.arity + 1)},
         }
-        redex = {a.id, b.id}
+        side_of = {a.id: "A", b.id: "B"}
         rw = fn(a, b, fresh)
 
+        if strict_locality:
+            self._apply_strict(net, a, b, ga, gb, ext, side_of, rw)
+        else:
+            self._apply_resolving(net, a, b, ga, gb, ext, side_of, rw)
+
+    def _apply_strict(self, net, a, b, ga, gb, ext, side_of, rw) -> None:
+        """The restricted subset: any wire touching an internal redex port is an error."""
         def resolve(ref):
             if isinstance(ref, Ext):
                 p = ext[ref.side].get(ref.port)
-                if p is not None and p[0] in redex:
+                if p is not None and p[0] in side_of:
                     raise ReduceError(
                         f"rule for {set((ga, gb))} referenced {ref.side}({ref.port}), "
                         f"which is an internal redex wire ({p}) — rules may only rewire "
@@ -144,14 +161,73 @@ class Reducer:
                 continue  # a freed boundary stays free
             net.connect(p, q)
 
+    def _apply_resolving(self, net, a, b, ga, gb, ext, side_of, rw) -> None:
+        """Full Lafont semantics: internal redex wires are resolved by chasing the wire
+        equations through the redex. Union-find over connection points — each redex aux
+        *slot* plus every hard end (an external port or a new agent's port). A rule link
+        joins its two ends; a snapshot wire joins its slot to its partner (another slot
+        when the wire is internal). Each resulting chain with two hard ends becomes one
+        wire; one hard end stays free; a closed chain (loop) has nothing to attach and
+        vanishes. Under commutation this wires the corresponding copies' principals
+        together — a fresh active pair, Lafont's own picture."""
+        parent: dict = {}
+
+        def find(x):
+            parent.setdefault(x, x)
+            root = x
+            while parent[root] != root:
+                root = parent[root]
+            while parent[x] != root:            # path compression
+                parent[x], x = root, parent[x]
+            return root
+
+        def union(x, y):
+            parent[find(x)] = find(y)
+
+        def point(ref):
+            if isinstance(ref, Ext):
+                return ("slot", ref.side, ref.port)
+            return ("port", ref)
+
+        for r1, r2 in rw.links:                  # the rule's wire equations
+            union(point(r1), point(r2))
+        for side, snap in ext.items():           # the pre-existing wires at the boundary
+            for i, p in snap.items():
+                if p is None:
+                    continue                     # free boundary: the slot is a dead end
+                if p[0] in side_of:              # internal redex wire: slot <-> slot
+                    union(("slot", side, i), ("slot", side_of[p[0]], p[1]))
+                else:                            # external partner: a hard end
+                    union(("slot", side, i), ("port", p))
+
+        net.remove_agent(a.id)
+        net.remove_agent(b.id)
+        for ag in rw.new_agents:
+            net.add(ag)
+        chains: dict = {}
+        for x in parent:
+            if x[0] == "port":
+                chains.setdefault(find(x), []).append(x[1])
+        for ports in chains.values():
+            if len(ports) == 2:
+                net.connect(ports[0], ports[1])
+            elif len(ports) > 2:
+                raise ReduceError(
+                    f"rule for {set((ga, gb))} is non-linear: {len(ports)} ports "
+                    f"({sorted(ports)}) resolved into a single wire chain")
+            # 1 port: that end stays free; 0 ports: a closed loop — it vanishes
+
     # ── reduce to normal form ──────────────────────────────────────────────────────
     def reduce(self, net: Net, *, max_steps: int = 100_000,
                opaque: Optional[set] = None,
-               pick: Optional[Callable[[list], tuple]] = None) -> Net:
+               pick: Optional[Callable[[list], tuple]] = None,
+               strict_locality: bool = False) -> Net:
         """Reduce `net` to normal form, returning a **new** net (source untouched).
         `opaque` freezes agents by id or glyph; `pick` chooses the next redex from the
         available list (default: canonical first — confluence makes the choice immaterial
-        on the restricted subset). Raises `ReduceError` past `max_steps`."""
+        on the restricted subset). `strict_locality=True` rejects internal redex wires
+        (the restricted subset) instead of resolving them (the default, full Lafont).
+        Raises `ReduceError` past `max_steps`."""
         work = net.copy().check()
         opq = set(opaque or ())
         choose = pick or (lambda pairs: pairs[0])
@@ -173,7 +249,7 @@ class Reducer:
                     f"this net (interaction combinators are Turing-complete — supply a "
                     f"terminating rule set, or mark agents opaque).")
             a_id, b_id = choose(pairs)
-            self._fire(work, a_id, b_id, fresh)
+            self._fire(work, a_id, b_id, fresh, strict_locality)
 
     # ── a confluence/conflict report for the restricted subset ────────────────────
     def validate(self, signatures: Optional[dict] = None) -> list[str]:
@@ -190,15 +266,21 @@ class Reducer:
 
 
 # ── rule constructors ──────────────────────────────────────────────────────────────
-def annihilate() -> Rule:
+def annihilate(*, swap: bool = False) -> Rule:
     """The classic *annihilation*: a same-glyph active pair vanishes, cross-linking matched
-    aux ports `A(i) <-> B(i)`. Both agents must share arity (use for γγ/δδ; for ε, arity 0,
-    the pair simply disappears — erasure)."""
+    aux ports. Two flavors, and Lafont's calculus needs both — the asymmetry is what makes
+    the combinators universal: `swap=False` links index-straight `A(i) <-> B(i)` (δδ, the
+    crossing picture); `swap=True` links index-reversed `A(i) <-> B(n+1-i)` (γγ, drawn
+    between mirrored bodies — the parallel-arcs picture). Reversal is an involution, so
+    either flavor is symmetric in the pair's order. Both agents must share arity; for ε
+    (arity 0) the pair simply disappears — erasure."""
     def fn(a: Agent, b: Agent, fresh) -> Rewrite:
         if a.arity != b.arity:
             raise ReduceError(f"annihilate needs equal arity: {a.glyph}/{b.glyph} "
                               f"have {a.arity}/{b.arity}")
-        return Rewrite(links=[(A(i), B(i)) for i in range(1, a.arity + 1)])
+        n = a.arity
+        return Rewrite(links=[(A(i), B(n + 1 - i if swap else i))
+                              for i in range(1, n + 1)])
     fn._annihilate = True  # type: ignore[attr-defined]
     return fn
 

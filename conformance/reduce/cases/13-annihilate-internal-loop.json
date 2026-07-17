@@ -1,0 +1,109 @@
+{
+  "case": "13-annihilate-internal-loop",
+  "description": "Internal redex wire, the closed-loop outcome (contract DEFAULT): the exact net shape case 09 rejects under strict locality, resolved instead. The pair is wired 0:0 AND 1:1; annihilation's equation x.1 ≡ y.1 coincides with the internal wire x.1<->y.1, closing a chain with NO external ends — a loop with no agents on it, which VANISHES (ruling: the net model cannot represent an agentless wire; a host that tracks loops as values counts them itself, outside the contract). The x.2 ≡ y.2 equation bridges the two leaves as normal: the whole normal form is pl~ql.",
+  "spec": {
+    "signatures": {
+      "con": 2,
+      "pl": 0,
+      "ql": 0
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "con",
+          "con"
+        ],
+        "rule": "annihilate"
+      }
+    ]
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "x"
+        },
+        "glyph": "con",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "y"
+        },
+        "glyph": "con",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "p"
+        },
+        "glyph": "pl",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "q"
+        },
+        "glyph": "ql",
+        "content": {},
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "x",
+          "to": "y",
+          "relation": "0:0"
+        },
+        {
+          "from": "x",
+          "to": "y",
+          "relation": "1:1"
+        },
+        {
+          "from": "x",
+          "to": "p",
+          "relation": "2:0"
+        },
+        {
+          "from": "y",
+          "to": "q",
+          "relation": "2:0"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "pl",
+          {},
+          []
+        ],
+        [
+          "ql",
+          {},
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "pl",
+            0
+          ],
+          [
+            "ql",
+            0
+          ]
+        ]
+      ],
+      "free": []
+    }
+  }
+}

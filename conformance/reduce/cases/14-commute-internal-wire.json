@@ -1,0 +1,113 @@
+{
+  "case": "14-commute-internal-wire",
+  "description": "Internal redex wire under COMMUTE (contract DEFAULT): gamma (arity 2, its two aux wired to EACH OTHER — an aux-to-self internal wire) meets delta (arity 1) at principals. Commutation's equations route the internal wire to the copies that take those boundary slots: the two delta-copies' PRINCIPALS end up wired together — a fresh active pair, Lafont's own picture — which then fires the delta~delta annihilation (arity 1), cross-linking the gamma-copy's own two aux ports. Normal form: one gamma copy with a self-wired aux pair, principal on the tail. Pins that internal wires under commute create real, further-reducing redexes rather than erroring. (The cross-agent flavor, gamma.aux<->delta.aux, is equally legal but diverges under gamma/delta commute — reduce-to-normal-form cases must terminate, so the self-wire flavor pins the semantics.)",
+  "spec": {
+    "signatures": {
+      "gamma": 2,
+      "delta": 1,
+      "tail": 0
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "gamma",
+          "delta"
+        ],
+        "rule": "commute"
+      },
+      {
+        "glyphs": [
+          "delta",
+          "delta"
+        ],
+        "rule": "annihilate"
+      }
+    ]
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "g"
+        },
+        "glyph": "gamma",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "d"
+        },
+        "glyph": "delta",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "t"
+        },
+        "glyph": "tail",
+        "content": {},
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "g",
+          "to": "d",
+          "relation": "0:0"
+        },
+        {
+          "from": "g",
+          "to": "g",
+          "relation": "1:2"
+        },
+        {
+          "from": "d",
+          "to": "t",
+          "relation": "1:0"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "gamma",
+          {},
+          []
+        ],
+        [
+          "tail",
+          {},
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "gamma",
+            0
+          ],
+          [
+            "tail",
+            0
+          ]
+        ],
+        [
+          [
+            "gamma",
+            1
+          ],
+          [
+            "gamma",
+            2
+          ]
+        ]
+      ],
+      "free": []
+    }
+  }
+}

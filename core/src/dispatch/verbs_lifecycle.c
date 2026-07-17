@@ -21,6 +21,7 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
     } else {
       res = res_make(1);
       res_line(res, "undid %d change(s)", done);
+      vc_log(m, "INFO", "undo", "undid %d change(s)", done);
     }
 
   } else if (!strcmp(v, "redo")) {
@@ -32,6 +33,7 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
     } else {
       res = res_make(1);
       res_line(res, "redid %d change(s)", done);
+      vc_log(m, "INFO", "redo", "redid %d change(s)", done);
     }
 
   } else if (!strcmp(v, "history")) {
@@ -46,7 +48,13 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
     res = res_make(1);
     for (int i = start; i < total; i++) {
       cJSON *it = cJSON_GetArrayItem(labels, i);
-      res_line(res, "%d  %s", i + 1, cJSON_IsString(it) ? it->valuestring : "");
+      /* attribution suffix (SPEC §9); data stays a plain label array */
+      const char *w = (i < m->undo_count) ? m->undo[i].who : NULL;
+      if (w)
+        res_line(res, "%d  %s  [%s]", i + 1,
+                 cJSON_IsString(it) ? it->valuestring : "", w);
+      else
+        res_line(res, "%d  %s", i + 1, cJSON_IsString(it) ? it->valuestring : "");
     }
     if (total == 0) res_line(res, "(no history)");
     res_set_data(res, labels);
@@ -215,8 +223,13 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
     res = res_make(1);
     for (int i = start; i < total; i++) {
       cJSON *r = cJSON_GetArrayItem(records, i);
-      res_line(res, "[%s] %s %s: %s", gstr(r, "ts"), gstr(r, "level"),
-               gstr(r, "op"), gstr(r, "msg"));
+      const char *w = gstr(r, "who");
+      if (w && *w)
+        res_line(res, "[%s] %s %s (%s): %s", gstr(r, "ts"), gstr(r, "level"),
+                 gstr(r, "op"), w, gstr(r, "msg"));
+      else
+        res_line(res, "[%s] %s %s: %s", gstr(r, "ts"), gstr(r, "level"),
+                 gstr(r, "op"), gstr(r, "msg"));
     }
     if (total == 0) res_line(res, "(log empty)");
     res_set_data(res, records);

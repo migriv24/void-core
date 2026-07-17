@@ -13,11 +13,16 @@
 #include "cJSON.h"
 #include "voidcore.h"
 
+/* The ONE version string — vc_version() and the `version` verb both return it.
+ * (Bump here; 0.2.2/0.2.3 drifted because it was duplicated in vc_manager.c.) */
+#define VC_VERSION_STR "0.2.4"
+
 /* An undo frame: a snapshot of the undoable slice of state (mantles + active),
  * labelled by the command that produced it (SPEC §6). v0 is memento-based; the
  * deeper "reified command" idea is parked in notes/command-architecture.md. */
 typedef struct {
   char *label;
+  char *who;      /* config.actor at capture time, or NULL (SPEC §9 attribution) */
   cJSON *mantles; /* duplicated snapshot */
   cJSON *active;  /* duplicated snapshot */
 } vc_undo_frame;
@@ -41,6 +46,9 @@ struct VC_Manager {
 /* ── state document (model/store, currently in vc_manager.c) ──────────────── */
 cJSON *vc_state_new(void);              /* the empty state document (SPEC §2) */
 cJSON *vc_active_mantle(cJSON *state);  /* resolve state.active.mantle, or NULL */
+/* Session actor for attribution (SPEC §9): config.actor if a non-empty string,
+ * else NULL. Set/cleared through the `config` verb — session-scoped by design. */
+const char *vc_actor(cJSON *state);
 
 /* ── ids / strings (util) ────────────────────────────────────────────────── */
 /* Mint "<prefix>_<hex>" into out. v0 PRNG; harden to a CSPRNG later. */

@@ -124,6 +124,60 @@ def main() -> int:
     # ── locality/linearity: the normal form is a well-formed net ──────────────────
     canon.check()  # raises NetError on any non-symmetric / out-of-range wire
 
+    # ── swap annihilation: γγ links mirrored (x_i ≡ y_{n+1-i}); δδ is index-straight ─
+    def annnet():
+        n = Net()
+        n.add(Agent("x", "con", 2)); n.add(Agent("y", "con", 2))
+        for lf in ("p", "q", "r", "s"):
+            n.add(Agent(lf, "leaf", 0))
+        n.connect(("x", 0), ("y", 0))
+        n.connect(("x", 1), ("p", 0)); n.connect(("x", 2), ("q", 0))
+        n.connect(("y", 1), ("r", 0)); n.connect(("y", 2), ("s", 0))
+        return n.check()
+    sw = Reducer().rule("con", "con", annihilate(swap=True)).reduce(annnet()).check()
+    assert sw.partner(("p", 0)) == ("s", 0)                     # A(1)<->B(2)
+    assert sw.partner(("q", 0)) == ("r", 0)                     # A(2)<->B(1)
+
+    # ── internal redex wires resolve by default; strict_locality restores the raise ─
+    def vicious():
+        # case-09 shape: active pair + internal aux wire x.1<->y.1, leaves on aux 2
+        n = Net()
+        n.add(Agent("x", "con", 2)); n.add(Agent("y", "con", 2))
+        n.add(Agent("p", "leaf", 0)); n.add(Agent("q", "leaf", 0))
+        n.connect(("x", 0), ("y", 0)); n.connect(("x", 1), ("y", 1))
+        n.connect(("x", 2), ("p", 0)); n.connect(("y", 2), ("q", 0))
+        return n.check()
+    res = R.reduce(vicious()).check()
+    assert res.partner(("p", 0)) == ("q", 0)                    # x2≡y2 bridges the leaves
+    assert len(res.agents) == 2                                 # the x1≡y1 loop vanished
+    try:
+        R.reduce(vicious(), strict_locality=True)
+        assert False, "expected ReduceError under strict locality"
+    except ReduceError:
+        pass
+    # a two-hop chase (x.1 wired to y.2): the equations bridge p and q through the redex
+    chase = Net()
+    chase.add(Agent("x", "con", 2)); chase.add(Agent("y", "con", 2))
+    chase.add(Agent("p", "leaf", 0)); chase.add(Agent("q", "leaf", 0))
+    chase.connect(("x", 0), ("y", 0)); chase.connect(("x", 1), ("y", 2))
+    chase.connect(("x", 2), ("p", 0)); chase.connect(("y", 1), ("q", 0))
+    cres = R.reduce(chase).check()
+    assert cres.partner(("p", 0)) == ("q", 0)
+
+    # ── internal wire under commute: the copies' principals meet — a fresh active pair
+    icom = Net()
+    icom.add(Agent("g", "con", 2)); icom.add(Agent("d", "one", 1))
+    icom.add(Agent("t", "leaf", 0))
+    icom.connect(("g", 0), ("d", 0))
+    icom.connect(("g", 1), ("g", 2))                            # aux-to-self internal wire
+    icom.connect(("d", 1), ("t", 0))
+    Ric = Reducer().rule("con", "one", commute()).rule("one", "one", annihilate())
+    iout = Ric.reduce(icom).check()                             # fresh one~one pair fired
+    assert sorted(a.glyph for a in iout.agents.values()) == ["con", "leaf"]
+    gcopy = next(a for a in iout.agents.values() if a.glyph == "con")
+    assert iout.partner((gcopy.id, 0)) == ("t", 0)
+    assert iout.partner((gcopy.id, 1)) == (gcopy.id, 2)         # self-wire came back around
+
     # ── expand (Fountain-style reference inlining) ────────────────────────────────
     def inline(ref, tgt, fresh):
         # replace a `ref`(1)–`def`(1) pair with a fresh `body` carrying def's content,
@@ -159,6 +213,16 @@ def main() -> int:
     reduced = R.reduce(net).check()
     derived = from_net(reduced, mantle_name="m2")
     assert derived["name"] == "m2" and len(derived["runes"]) == 2  # x,y gone; p,q remain
+    # tags survive the to_net/from_net round-trip (VLS bug report 2026-07-06)
+    mantle["runes"][2]["tags"] = ["node:seq1", "status:live"]
+    rt = from_net(to_net(mantle, SIG), mantle_name="rt")
+    by_name = {r["spirit"]["name"]: r for r in rt["runes"]}
+    assert by_name["p"]["tags"] == ["node:seq1", "status:live"]
+    assert by_name["q"]["tags"] == []
+    # ...including through a reduction (surviving agents keep their tags)
+    survivors = from_net(R.reduce(to_net(mantle, SIG)), mantle_name="rt2")
+    assert {r["spirit"]["name"]: r["tags"] for r in survivors["runes"]} == \
+        {"p": ["node:seq1", "status:live"], "q": []}
     # strict adapter rejects a port-less edge relation
     try:
         to_net({"runes": [{"spirit": {"name": "a"}, "glyph": "leaf"}],
@@ -167,8 +231,9 @@ def main() -> int:
     except NetError:
         pass
 
-    print("REDUCE: OK (identity, annihilation, commutation, CONFLUENCE x40 schedules,",
-          "termination guard, opaque, purity, linearity, expand, mantle adapter)")
+    print("REDUCE: OK (identity, annihilation ±swap, commutation, CONFLUENCE x40",
+          "schedules, termination guard, opaque, purity, internal-wire resolution +",
+          "strict locality, expand, mantle adapter)")
     return 0
 
 

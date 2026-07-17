@@ -28,6 +28,8 @@ reducer: a `Net` of `Agent`s with a principal + auxiliary ports and a symmetric 
 normal form (canonical + pluggable scheduling, opaque agents, a `max_steps` termination
 guard), and `annihilate`/`commute`/`expand`/general `rule` constructors. `to_net`/`from_net`
 bridge a [mantle](/concepts/mantle.md) (port indices ride the edge `relation` as `"i:j"`).
+Agents carry the rune's `tags` through the round-trip (fixed 2026-07-07 on a VLS report —
+they were dropped); agents *created by rules* during reduction start tagless.
 
 The **five open forks are resolved** ([transform layers](/design/transform-layers.md)): restricted confluent subset
 (≤1 rule per glyph pair, enforced at registration); `reduce(net)->net`, pure, no effects;
@@ -43,6 +45,26 @@ rewrites to normal form, returns the derived mantle (preview; source untouched),
 `--commit` installs it live. The reducer + port signatures are **authored as data**
 (`voidcore.spec.reducer_from_spec`, `config.transform.reduce`) so a mantle carries its own
 rewrite rules. Tested in `voidcore/reduce_verb_test.py`.
+
+The executor's semantics are also a **portable contract** (2026-07-09):
+`conformance/reduce/` states them language-neutrally and carries pure-JSON conformance
+cases + a runner, so a host in another language can implement Reduce and prove it matches
+the reference. The Python implementation stays the oracle; a future C-ABI reduce would be
+tested by the same cases.
+
+**Contract evolution (2026-07-14, from Void Maiz's first daily-use findings):**
+(1) annihilation has **two flavors** — index-straight `A(i)↔B(i)` (δδ, the crossing
+picture) and index-swapped `A(i)↔B(n+1−i)` via `"swap": true` (γγ, the mirrored
+parallel-arcs picture); the asymmetry is load-bearing (it's what makes the combinators
+universal), and with one flavor γγ and δδ are indistinguishable. (2) **internal redex
+wires resolve by default** (full Lafont): the executor chases the wire equations through
+the redex via union-find — two external ends bridge, one stays free, a closed loop
+**vanishes** (ruling: the net model can't represent an agentless wire; hosts wanting
+loops-as-values count them outside the contract); under commute the equations join the
+corresponding copies' *principals* — a fresh active pair, Lafont's own picture.
+`strict_locality=True` (case key `"strict_locality"`) restores the restricted subset's
+`locality` rejection. Cases 11–14 pin swap, the internal bridge, the loop vanish, and
+the internal-wire commute; case 09 re-pins strict mode. 14/14 conformance.
 
 Still `planned`: general (sub-pattern / tag-expression) rule LHS without the confluence
 guarantee, and data-form `expand` (it needs a custom build fn, so it stays code-registered).

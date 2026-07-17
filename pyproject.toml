@@ -1,11 +1,11 @@
-[build-system]
+﻿[build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "voidcore"
-version = "0.2.1"
-description = "Void Core — a host-agnostic engine (C core + Python binding + holidays)."
+version = "0.2.4"
+description = "Void Core â€” a host-agnostic engine (C core + Python binding + holidays)."
 license = "MIT"
 requires-python = ">=3.9"
 # No required deps: the core needs only the bundled libvoidcore.dll. Holidays pull

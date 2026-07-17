@@ -34,4 +34,5 @@ When a track matures into contract, it lands in `SPEC.md`.
 * [Voidscript as a DSL](/design/voidscript-dsl.md) - grammar-safe orchestration language (PEL direction)
 * [Context-size optimization](/design/context-optimization.md) - context as a core pillar; RL-ready later
 * [Agent tools, memory, extensions](/design/agent-tools-memory.md) - tool structure, memory, sandbox, extensions
+* [Needle fine-tune — resident micro-agent](/design/needle-finetune.md) - synthetic-data plan for a 26M on-device NL→dispatcher model as a default core component
 * [Concept brainstorm (archive)](/design/concept-brainstorm.md) - archived early vocabulary brainstorming

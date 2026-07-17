@@ -65,10 +65,16 @@ cJSON *vc_dispatch_json(VC_Manager *m, const char *command) {
 
   /* commit or discard the pre-mutation snapshot based on the outcome */
   if (have_snap) {
-    if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(res, "ok")))
+    if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(res, "ok"))) {
       vc_undo_commit(m, &snap);
-    else
+      /* the mutation spine (SPEC §9): every successful top-level mutating
+       * command is logged (with `who` when config.actor is set), so a shared
+       * seam — human CLI, GUI gestures, agents — is fully auditable. batch
+       * sub-commands run under suppress_undo and are covered by their batch. */
+      vc_log(m, "INFO", v, "%s", command);
+    } else {
       vc_undo_frame_free(&snap);
+    }
   }
 
   vc_argv_free(&a);

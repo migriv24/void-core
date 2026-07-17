@@ -62,6 +62,25 @@ jobs:
         shell: bash
         run: python conformance/run.py --dll "$PWD/dist/${{ matrix.lib }}"
 
+      # The Python transformation layers + binding tests + the portable reduce
+      # executor contract (conformance/reduce). One platform suffices — the layers
+      # are pure Python; the binding tests load the fresh build via default search.
+      - name: Layer tests + reduce executor conformance
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          python reduce/reduce_test.py
+          python temper/temper_test.py
+          python scry/projection_test.py
+          python scry/lens_test.py
+          python scry/conformance_test.py
+          python voidcore/spec_test.py
+          python voidcore/reduce_verb_test.py
+          python voidcore/dispatch_test.py
+          python bindings/python/effect_test.py
+          python bindings/python/attribution_test.py
+          python conformance/reduce/run.py
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.lib }}
