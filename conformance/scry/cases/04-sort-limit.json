@@ -1,0 +1,85 @@
+{
+  "case": "04-sort-limit",
+  "description": "Operation ORDER inside a projection, which is the thing ports get wrong: filter, then SORT, then LIMIT, then select. Limiting before sorting yields a different (wrong) five names. `sort` names a content field; a rune missing that field falls back to its `spirit.name` as the key — not to null, and not to being dropped. `reverse` is applied as part of the sort, so `limit` still takes the head of the final order.",
+  "op": "scry",
+  "selector": {
+    "where": "status:live",
+    "sort": "rank",
+    "reverse": true,
+    "limit": 3
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "note",
+        "content": {
+          "rank": "b"
+        },
+        "tags": [
+          "status:live"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "beta"
+        },
+        "glyph": "note",
+        "content": {
+          "rank": "d"
+        },
+        "tags": [
+          "status:live"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "gamma"
+        },
+        "glyph": "note",
+        "content": {
+          "rank": "a"
+        },
+        "tags": [
+          "status:live"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_d",
+          "name": "delta"
+        },
+        "glyph": "note",
+        "content": {
+          "rank": "z"
+        },
+        "tags": [
+          "status:draft"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_e",
+          "name": "epsilon"
+        },
+        "glyph": "note",
+        "content": {},
+        "tags": [
+          "status:live"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "names": [
+      "epsilon",
+      "beta",
+      "alpha"
+    ]
+  }
+}

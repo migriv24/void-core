@@ -189,5 +189,6 @@ vectors" north star reachable instead of fantastical.
 
 > Open: NeLA's repo documents the agent set (CON/DUP/ERA/PAR/INT/… 25 agents) and
 > the two-layer compile flow, but **not** the concrete interaction-rule tables.
-> Before committing, we should read Lafont's combinator rules directly (γδε
+> Before committing, we should read
+> [Lafont's combinator rules](/sources/lafont-interaction-nets.md) directly (γδε
 > commutation/annihilation) to design our glyph-pair rule schema honestly.

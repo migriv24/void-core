@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                 "holidays", "localjson"))
 
-from lens import Lens  # noqa: E402
+from lens import Lens, pipeline  # noqa: E402
 from localjson_holiday import LocalJsonHoliday, RecordSchema  # noqa: E402
 
 
@@ -61,7 +61,64 @@ def main() -> int:
     lossy_lens = LocalJsonHoliday(path="(unused)", schema=lossy_schema).lens()
     assert not lossy_lens.check(records).ok      # data loss detected, not shipped
 
-    print("LENS: OK (plain lens both directions, record<->rune law, lossy schema caught)")
+    # ── compose: the pivot rule, and the normalizer bug it hides ─────────────────
+    # Void Hormiga's correction (2026-08-17): the composite normalizer must be
+    # `self.normalize or other.normalize`. Their first proposal (`self.normalize`)
+    # produced a composite that compared whitespace the inner lens knew to collapse,
+    # and the law failed on data that round-trips perfectly.
+    collapse = lambda d: {**d, "text": " ".join(str(d.get("text", "")).split())}
+    normalizing = Lens(forward=lambda d: {**d, "text": f"  {d['text']}  "},
+                       backward=lambda d: dict(d),
+                       normalize=collapse, label="pads-text")
+    trivial = Lens(forward=lambda d: dict(d), backward=lambda d: dict(d), label="trivial")
+
+    assert normalizing.check([{"id": "a", "text": "one two"}]).ok      # holds alone
+    composite = trivial.compose(normalizing)                          # no-opinion o opinion
+    assert composite.normalize is collapse, "composite dropped its argument's normalizer"
+    assert composite.check([{"id": "a", "text": "one two"}]).ok, composite.check(
+        [{"id": "a", "text": "one two"}]).render()
+    # ...and the other order, so the fallback is not accidentally one-sided
+    assert normalizing.compose(trivial).normalize is collapse
+
+    # an explicit normalizer still wins over the fallback
+    assert trivial.compose(normalizing, normalize=None).normalize is collapse
+    mine = lambda d: d
+    assert trivial.compose(normalizing, normalize=mine).normalize is mine
+
+    # composition is genuinely the pivot: A -> pivot -> C, lossless because its legs are
+    to_pivot = Lens(forward=lambda r: {"v": r["a"]}, backward=lambda p: {"a": p["v"]},
+                    label="A->pivot")
+    to_c = Lens(forward=lambda p: {"c": p["v"]}, backward=lambda q: {"v": q["c"]},
+                label="pivot->C")
+    chain = to_pivot.compose(to_c)
+    assert chain.forward({"a": 7}) == {"c": 7} and chain.check([{"a": 7}, {"a": 8}]).ok
+    assert chain.label == "A->pivot -> pivot->C"
+
+    # a lossy leg makes the composite lossy - the law is inherited, not assumed
+    drops = Lens(forward=lambda p: {"c": p["v"]}, backward=lambda q: {}, label="lossy-leg")
+    assert not to_pivot.compose(drops).check([{"a": 7}]).ok
+
+    # ── identity + pipeline: the monoid, and why the empty chain matters ──────────
+    ident = Lens.identity()
+    assert ident.check([{"a": 1}]).ok and ident.normalize is None
+    assert ident.compose(to_pivot).forward({"a": 3}) == to_pivot.forward({"a": 3})
+    assert to_pivot.compose(ident).forward({"a": 3}) == to_pivot.forward({"a": 3})
+    assert pipeline().forward({"a": 1}) == {"a": 1}          # empty chain is well-defined
+    assert pipeline(to_pivot, to_c).forward({"a": 9}) == {"c": 9}
+    assert pipeline(to_pivot, to_c).check([{"a": 9}]).ok
+
+    # ── check records a raised exception as a failure, and keeps going ────────────
+    def explodes(r):
+        if r["a"] == 2:
+            raise TypeError("no")
+        return {"v": r["a"]}
+    thrower = Lens(forward=explodes, backward=lambda p: {"a": p["v"]}, label="throws")
+    rep = thrower.check([{"a": 1}, {"a": 2}, {"a": 3}])
+    assert rep.checked == 3, rep.checked                     # did not stop at the throw
+    assert len(rep.mismatches) == 1 and "TypeError" in str(rep.mismatches[0][3]), rep.render()
+
+    print("LENS: OK (plain lens both directions, record<->rune law, lossy schema caught,",
+          "compose + normalizer fallback, identity/pipeline monoid, exception-as-failure)")
     return 0
 
 

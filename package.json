@@ -1,6 +1,6 @@
 ﻿{
   "name": "void-core",
-  "version": "0.2.5",
+  "version": "0.2.7",
   "description": "Void Core JS prototype â€” the CLI/dispatcher conformance oracle for the C core: script runner, rune/mantle model, logging, tags.",
   "license": "MIT",
   "main": "src/index.js",

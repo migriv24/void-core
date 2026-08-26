@@ -34,6 +34,17 @@ Most context blowups are avoidable *by design*, before any summarization:
   than contents. Add a **context budget** notion to read verbs. This is buildable
   now and belongs in the next SPEC revision.
 
+**The principle governs both read surfaces, not just the dispatcher.** This page was
+written about dispatcher verbs, but the [OKF engine](/components/okf-engine.md)'s bundle
+CLI is a *second* read surface with the same problem — and the more expensive one, because
+the bundle CLI is how an agent reads **design**, which is where the long documents actually
+are. Flagged by Void Maiz (2026-08-07) after their bundle reached 48 concepts. Applied:
+`okf get <id> --head` returns the header — title, description, tags, `resource`, and the
+link graph *both ways* — without the body, which on a real concept is **11% of the full
+read** (651 vs 6014 characters for `concepts/reduce`). `ls`/`query` are the selection
+surface, `--head` is triage, and the body is the exception you ask for. The same
+altitude rule, applied to the surface that was quietly exempt from it.
+
 ---
 
 ## 2. Second line: the summarization scaffold (SUPO, de-RL'd)

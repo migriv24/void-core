@@ -4,7 +4,7 @@ title: Dispatcher
 description: The one command entry point the CLI, GUI, and script runner all call; every mutation is undoable and dirty-tracked.
 resource: core/src/dispatch/dispatch.c
 tags: [status:current, audience:library, audience:dev, confidence:asserted, foundation]
-timestamp: 2026-07-03T00:00:00Z
+timestamp: 2026-08-25T00:00:00Z
 ---
 
 The **dispatcher** is Void Core's single surface: one router that every face (CLI,
@@ -15,6 +15,34 @@ GUI, [Voidscript](/concepts/voidscript.md)) calls. "One core, three faces."
 Every verb returns `{ ok, lines, data }` — `lines` for humans, `data` for machines,
 `ok=false` instead of throwing across the boundary. Argument parsing is quote-aware
 and shared by the CLI and Voidscript.
+
+# The command codec
+
+A dispatcher argument carries **an arbitrary NUL-free byte string**, and
+`split(quote(v)) == [v]` for every such `v` — newlines, quotes, backslashes and
+control characters included. That sentence is the contract a host builds against,
+and it is a *law* (`voidcore/codec_test.py` checks it as a property over generated
+inputs, not a list of values somebody thought of).
+
+Both halves ship as code — `vc_arg_quote` / `vc_argv_split_json` /
+`vc_transcript_split_json` on the C ABI, `quote_arg` / `split_args` /
+`split_transcript` in Python (pure, no engine) — because SPEC §6.1 spent a release
+as *a specification standing in for a component*, and five independent
+implementations of it got it wrong, this repo's own reference core among them.
+**A rule that must be reimplemented will be reimplemented wrong.**
+
+The **decoder** is the half hosts forget, and it is the one a
+[holiday](/concepts/holiday.md)-shaped application needs most: three apps in this
+family independently converged on *proposing a command transcript that a human then
+dispatches*, and that review is worth nothing unless the reviewer can ask "what will
+this text actually do" with the tokenizer that will do it. `split_transcript` answers
+it — cutting on newline and `;` **outside** quoted runs, refusing an unterminated
+quote, and reporting whether the transcript is *flat* (no blocks, no control words),
+which is the property that makes its effect readable without simulating it.
+
+An unterminated quote is an **error** (§6.1 rule 5, since 0.2.7). It used to run to
+end of input, and that silence is the whole reason this bug class corrupts content
+with `ok:true` rather than announcing itself.
 
 A dispatcher instance is **not thread-safe** (one mutable state document,
 unsynchronized undo/redo stacks): hosts serialize calls per instance or confine it

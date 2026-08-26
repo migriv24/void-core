@@ -1,0 +1,54 @@
+{
+  "case": "01-identity",
+  "description": "Identity is the default: an empty selector returns every rune, in input order, unchanged. Scry filters, orders and caps — it never reorders spontaneously and never drops a rune it was not asked to drop.",
+  "op": "scry",
+  "selector": {},
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "gamma"
+        },
+        "glyph": "note",
+        "content": {
+          "title": "C"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "note",
+        "content": {
+          "title": "A"
+        },
+        "tags": [
+          "status:live"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "beta"
+        },
+        "glyph": "task",
+        "content": {
+          "title": "B"
+        },
+        "tags": [
+          "status:draft"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "names": [
+      "gamma",
+      "alpha",
+      "beta"
+    ]
+  }
+}

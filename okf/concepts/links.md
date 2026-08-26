@@ -50,6 +50,22 @@ dangling-tolerant. So OKF is not adding links to Void Core — it is a *view* of
 links that already (informally) exist. This is the entry in the
 [glossary](/references/voidcore-glossary.md): OKF link ⇄ Void Core link.
 
+# An edge carries three things — reify anything else
+
+An edge is **`relation`, `direction`, and `weight`**, and that is the whole vocabulary.
+`weight` is not the first of an open-ended set of attributes; it is the only one. A host
+that wants a second — a confidence, a source, an as-of date, an author — must **reify the
+edge as a [rune](/concepts/rune.md)** and link to *that*.
+
+This reads like a workaround and is usually the better model. Void Hormiga wanted a
+confidence on an *attributed-to* edge (*"this statement is attributed to this person,
+0.61"*) and found, on reifying it, that the evidence belonged on the statement all along:
+a statement has exactly one speaker, so what was uncertain was the **claim**, not the
+edge. Reification asks "what is the thing this attribute is really about?" and the answer
+is usually a noun the model was missing. (Reported 2026-08-17; the rule was already true
+and simply not written down, so a host reading this page reasonably tried to add a second
+attribute.)
+
 # Status
 
 `current` for the **rune↔rune** primitive (verified 2026-06-18): first-class

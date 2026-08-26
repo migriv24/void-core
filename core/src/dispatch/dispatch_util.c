@@ -19,14 +19,35 @@ cJSON *res_make(int ok) {
   return r;
 }
 
+/* Format one result line with NO length cap.
+ *
+ * It used to be a 1024-byte stack buffer, which truncated any line carrying a
+ * long value — `set` echoes the value it stored — and, because the cut landed
+ * mid-sequence, produced INVALID UTF-8 inside the JSON result. The host's parse
+ * then threw on a command that had actually succeeded: a ~500-character value in
+ * any non-ASCII script was enough. The tokenizer has grown its token buffer
+ * dynamically since day one for exactly this reason; the result path had not
+ * caught up. */
+static char *vformat_dup(const char *fmt, va_list ap) {
+  va_list cp;
+  va_copy(cp, ap);
+  int need = vsnprintf(NULL, 0, fmt, cp);
+  va_end(cp);
+  if (need < 0) return NULL;
+  char *buf = (char *)malloc((size_t)need + 1);
+  if (!buf) return NULL;
+  vsnprintf(buf, (size_t)need + 1, fmt, ap);
+  return buf;
+}
+
 void res_line(cJSON *r, const char *fmt, ...) {
-  char buf[1024];
   va_list ap;
   va_start(ap, fmt);
-  vsnprintf(buf, sizeof buf, fmt, ap);
+  char *buf = vformat_dup(fmt, ap);
   va_end(ap);
   cJSON_AddItemToArray(cJSON_GetObjectItemCaseSensitive(r, "lines"),
-                       cJSON_CreateString(buf));
+                       cJSON_CreateString(buf ? buf : ""));
+  free(buf);
 }
 
 void res_set_data(cJSON *r, cJSON *data) {
@@ -35,13 +56,13 @@ void res_set_data(cJSON *r, cJSON *data) {
 
 cJSON *res_fail(const char *fmt, ...) {
   cJSON *r = res_make(0);
-  char buf[1024];
   va_list ap;
   va_start(ap, fmt);
-  vsnprintf(buf, sizeof buf, fmt, ap);
+  char *buf = vformat_dup(fmt, ap);
   va_end(ap);
   cJSON_AddItemToArray(cJSON_GetObjectItemCaseSensitive(r, "lines"),
-                       cJSON_CreateString(buf));
+                       cJSON_CreateString(buf ? buf : ""));
+  free(buf);
   return r;
 }
 

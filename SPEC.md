@@ -84,6 +84,15 @@ All persistent working state is one serializable document:
 ```
 - `id` (the *real ID*): minted once as `"<prefix>_<random hex>"`, frozen forever,
   never reused. Implementations MUST mint a collision-resistant random id.
+  **`spirit.id` MUST NOT be derived from a rune's content.** Two runes that happen
+  to hold identical content are different runes, and the randomness is load-bearing
+  downstream: it makes two peers who independently create a same-named rune produce
+  genuinely distinct runes with no conflict, and it labels the mantle's graph, which
+  is what keeps content-addressing a mantle an `O(n log n)` sort instead of graph
+  canonicalization. (Recorded at Void Palabra's request, 2026-07-27 — it looks like a
+  tidy cleanup and would break both properties at once.) The one carve-out is agents
+  minted *inside* a reduction, which are derived from the redex so that reduction is
+  reproducible across peers — see `conformance/reduce/README.md` §2.
 - `name` (the *human handle*): editable, MUST be unique within its mantle. It
   doubles as a tag (§5), so renaming MUST repoint references (§3.4).
 
@@ -154,6 +163,22 @@ Required operations (semantics fixed):
   rewrite rules is the `reduce` verb at the seam (§7), driven by
   `config.transform.reduce` — the inline `rules` array itself remains reserved (§12).
 
+**Mantle-level lifecycle** (`mantle new|rm|rename`, §7.2) — the analogues of the
+rune operations above, over `state.mantles`:
+- `removeMantle` — drop the mantle and its runes. If it was the active mantle,
+  set `active.mantle` to `null` (the §7.1 cold-start state) rather than
+  failing; removing the **last** mantle is allowed, since root-`ls` already
+  describes an empty mantle list. The name becomes free for reuse.
+- `renameMantle` — keep the mantle's `id`, `runes`, `layout` and `rules`; reject
+  a taken name (as `mantle new` does); carry `active.mantle` to the new name.
+- Both mutate the undoable slice (`mantles` + `active`, §6) and so take a normal
+  undo frame — an undone `mantle rm` restores the mantle, its runes, and the
+  active pointer.
+- Neither touches `state.bindings`: a binding into a removed or renamed mantle
+  is left **dangling**, the same tolerance §3.7 gives links. This is deliberate —
+  `bindings` is outside the undo slice, so repointing them here would produce a
+  mutation that `undo` could only half-restore. See §12.
+
 ### 3.5 Domain — the base a mantle renders/deploys onto  **[impl]**
 ```jsonc
 { "name":"...", "repo":null, "liveUrl":null,
@@ -208,6 +233,17 @@ mantle's `layout.edges`. `relation` is a free label (may be `""`), `weight` a nu
   (§5). Mutating verbs that accept `<ref>` MUST apply to every selected rune.
 - `spirit.id` is immutable; `spirit.name` is mutable but reference-repointing
   (§3.4).
+- **Rune order is preserved but not semantic.** A mantle's `runes` is an array, and
+  implementations MUST preserve its order faithfully — creation appends, `rename`
+  keeps a rune's position, `rm` closes the gap, `undo` restores positions, and
+  `export`/hydrate round-trip it. But **no verb's semantics depend on that order**:
+  `ls` does not sort, and filters (§5) never reorder. Order is therefore *incidental
+  information that is faithfully carried*, not meaning. Two consequences: an
+  order-sensitive consumer (a canonical form, a content hash, a sync join) MUST be
+  order-insensitive at the Core level, because two peers who create the same runes in
+  different orders hold **equal** state; and an application that genuinely needs an
+  ordering MUST make it explicit in a content field, never lean on array position —
+  the same lesson as `placement` in §3.2.
 
 ---
 
@@ -264,11 +300,111 @@ One dispatcher backs the CLI, GUI, and script runner.
   `ok:false` with the message in `lines`.
 
 **Argument & flag parsing** (shared by CLI and Voidscript):
-- argv is split respecting single/double quotes.
+- argv is split respecting single/double quotes (the exact rules are §6.1 — a host
+  that stores free text through the dispatcher MUST read them).
 - `--flag` is boolean `true`; `--flag=value` or `--flag value` (for known
   value-flags: `tag`, `level`, `tail`, `message`/`m`, `state`, `port`, `as`,
   `name`, `note`, `mantle`) takes a value; `-x` is a short boolean (or value-flag).
 - everything else is positional.
+
+### 6.1 Argument quoting  **[impl]**
+
+Normative, and stated at length because getting it wrong is **silent and corrupts
+content rather than structure**: a mis-quoted argument terminates early, the rest of
+the line is swallowed, and dispatch still returns `ok: true`. Five independent
+implementations have now hit it — Void Hormiga 2026-08-10 in C++, Void Reyna
+2026-08-17 in Python, the helper in Void Maiz's own example, Hormiga's host-side
+`tokenize()`, and **this specification's own reference core**, which carried three
+separate quote scanners (the Voidscript statement reader, the condition lexer and
+the interpolator), none of which implemented rule 3 below. That last one is why
+§6.1 no longer ships as prose alone: a rule that must be reimplemented will be
+reimplemented wrong, and writing it down harder did not stop the fourth instance
+or the fifth. Before 0.2.7 the only documentation was "argv is split respecting
+single/double quotes."
+
+The tokenizer's complete rules:
+
+1. Outside quotes, **whitespace separates arguments**.
+2. A bare `'` or `"` **opens** a quoted run and is *stripped*, never emitted. The
+   matching quote **closes** it and is likewise stripped. Quoting is therefore
+   *strip-anywhere*, not delimiting: `a'b'c` is the single argument `abc`.
+3. Inside **single** quotes there is exactly **one escape**: `\'` yields a literal
+   `'`. Every other backslash is literal — deliberately, so JSON payloads and text
+   escape codes (`\n`, `\cY`) pass through untouched.
+4. Inside **double** quotes there is **no escape at all**; the next `"` always
+   closes. A literal `"` therefore cannot appear in a double-quoted argument — use
+   single quotes, inside which `"` is an ordinary character.
+5. A quoted run that is still open at end of input is an **error** (since 0.2.7).
+   Dispatch returns `ok:false` and logs `ERROR`; a Voidscript statement halts the
+   script. Until 0.2.7 it silently ran to end of input, and that single property
+   is what made every bug in this class quiet: the argument swallowed the rest of
+   the line — or, in a transcript, the rest of the file — and dispatch still
+   returned `ok:true`. Nothing legitimate depends on the old behavior (a literal
+   quote is spelled `\'`, or carried inside the other quote style), and the naive
+   four-line helper's output is exactly what it turned into corruption.
+
+**A newline inside a quoted run is ordinary content**, not a separator and not an
+error. Rule 1's whitespace separates arguments *outside* quotes only, so a
+multi-line value — a description, a newsletter body, a JSON blob — is carried by
+a single argument, and `split(quote(v)) == [v]` holds for it like any other byte
+string. Statement boundaries in a transcript (§8) are likewise honored only
+outside quotes. A host that finds a multi-line value truncated has a bug above
+the tokenizer, not in it.
+
+**The law.** The codec is a section/retraction pair, and this is the sentence to
+build against:
+
+> A dispatcher argument carries an arbitrary **NUL-free byte string**, and
+> `split(quote(v)) == [v]` for every such `v`.
+
+NUL is excluded because the whole boundary is C strings — a value containing a
+NUL cannot reach `vc_dispatch` at all — and saying so is part of the guarantee
+rather than a gap in it. `voidcore/codec_test.py` pins the law as a **property
+over generated inputs** rather than a vector list, because every failure in this
+class so far has been a value nobody thought of.
+
+**Both halves ship as code**, on the C ABI and in the Python binding, because a
+rule that must be reimplemented will be reimplemented wrong — four independent
+codebases have now proved it, this one included:
+
+| | C ABI | Python |
+|---|---|---|
+| encode one argument | `vc_arg_quote` | `quote_arg` |
+| decode one command | `vc_argv_split_json` | `split_args` |
+| decode a whole transcript | `vc_transcript_split_json` | `split_transcript` |
+
+The **decoder** matters as much as the encoder and is the half hosts forget. A
+host that reviews a proposed transcript before dispatching it — a submission from
+a stranger, a harvested dataset, an agent's proposed run — must be able to ask
+*what will this text actually do* with the tokenizer that will do it. The
+transcript splitter answers that: it cuts on newline and `;` **outside** quoted
+runs, drops `#` comments, returns each statement's `argv`, refuses an
+unterminated quote, and reports whether the transcript is **flat** (no blocks, no
+§8 control words) — a flat transcript is one whose effect can be read off its
+statements without simulating it. The Python halves are pure functions needing no
+engine or build.
+
+**To pass an arbitrary string as one argument**, single-quote it and replace every
+`'` with `\'` — *and emit any trailing backslashes outside the closing quote*:
+
+```
+        arg(v) = "'" + v_head.replace("'", "\'") + "'" + v_tail
+                 where v_tail is v's trailing run of backslashes, v_head the rest
+```
+
+That last clause is not a nicety. Without it a value ending in `\` puts a backslash
+immediately before the closing `'`, rule 3 reads the pair as an escaped apostrophe,
+and the argument never closes — so `C:\` silently becomes `C:'` and everything after
+it is eaten. The naive four-line helper (single-quote, escape apostrophes) passes
+every test a host is likely to write and fails on Windows paths, LaTeX, and regexes.
+
+Reference implementation: `quote_arg` in `bindings/python/voidcore.py`
+(`from voidcore import quote_arg`) — a pure string function requiring no engine, so
+it may be imported or copied. Conformance case `12-arg-quoting.vs` pins the rules;
+a host implementing the tokenizer must pass it.
+
+A **JSON** value is passed with `setjson <ref> <field> '<json>'` — single quotes,
+with `\'` for any apostrophe inside the JSON.
 
 **Mutation invariants:** every mutating verb pushes an undo frame (snapshot of
 mantles+active) *before* mutating; the redo stack is cleared on new mutation;
@@ -317,6 +453,7 @@ agents: **mantle ≈ directory, rune ≈ file, tag expression ≈ glob**.
 | `mv <a> <b>` | `rune rename <a> <b>` |
 | `cp <a> [<b>]` | `rune dup <a> [<b>]` |
 | `mkdir <name>` | `mantle new <name>` |
+| `rmdir <name>` | `mantle rm <name>` |
 | `grep <q>` | `find <q>` |
 | `man [verb]` | `help [verb]` |
 | `?` | `help` |
@@ -368,6 +505,8 @@ expects.)
 | `link <from> <to> [--relation r] [--weight w] [--undirected]` | create/update a link (§3.7); endpoints MAY dangle |
 | `unlink <from> <to> [--relation r]` | remove matching link(s) |
 | `mantle new <name>` | create a mantle over the active domain (becomes active) |
+| `mantle rm <name>` | remove a mantle and its runes; removing the **active** mantle deactivates (§7.1 cold start) rather than failing, and removing the last mantle is allowed. Rejects an unknown name |
+| `mantle rename <old> <new>` | rename a mantle, keeping its `id` and runes; `active.mantle` follows. Rejects an unknown `<old>` or a taken `<new>` (like `mantle new`) |
 | `bind <from> <on> <to> <do> [--name]` | create a cross-mantle binding (validates refs) |
 | `bindings [<rune>] [--mantle m]` / `unbind <id\|name>` | list / remove bindings |
 | `undo [N]` / `redo [N]` | walk the undo/redo stacks |
@@ -459,6 +598,46 @@ the C core and the JS oracle:
 - **Flow** `halt [code]`, `return [value]`, `echo`/`print`.
 - **Args** `script run <name> a b c` exposes `$1 $2 $3` and `$@`.
 - **Result** `{ ok, lines, data }` like any command; `halt N` → `ok = (N==0)`.
+
+### 8.1 Quoting and expansion  **[impl]**
+
+Normative, and the part that was missing. A transcript is the channel every
+change in the family passes through, and until 0.2.7 the interaction between
+§6.1 quoting and Voidscript's own syntax was unspecified — which is where two
+command injections lived.
+
+1. **Statement boundaries are honored only outside quoted runs.** A newline, `;`,
+   `{` or `}` inside a quoted argument is content. Quote state is §6.1's, escapes
+   included — an implementation MUST use the same quote scanner for statements
+   that it uses for argv. Two scanners is the bug, whatever their rules say.
+2. **Single quotes suppress expansion.** `$var`, `${var}` and `$(cmd)` are
+   literal text inside a single-quoted run, exactly as `\n` and `\cY` are (§6.1
+   rule 3). Double quotes and bare words expand as before. Without this, a
+   transcript built by correctly quoting somebody else's text runs whatever
+   `$(…)` that text happens to contain — and a host's verb-level filter cannot
+   see it, because the verb it reads is the legitimate one.
+3. **An expansion is exactly one argument.** The bytes an expansion produces are
+   content, never syntax: they are not re-scanned for quotes, separators or
+   flags, and an empty expansion yields an explicit empty argument rather than
+   disappearing. `let x = 'two words'` followed by `set r f $x` sets one field to
+   `two words`, and a value containing `'`, a newline, `--json` or nothing at all
+   behaves the same way.
+4. **`${name}` is an expansion, not a block.** The brace belongs to the
+   interpolator; a statement does not end at it.
+5. **`let x = <rest>`** takes the rest of the statement — trailing *source*
+   whitespace trimmed, since that is layout and not value — decoded as exactly
+   one §6.1 argument, with no field splitting.
+6. **`$(cmd --json)` captures the command's `data`**; a *string* `data` captures
+   as itself, not as its JSON encoding. (Encoding it wrapped the value in quotes
+   and escaped its contents, which downstream code then un-wrapped by accident
+   and lossily — a captured newline came back as the two characters `\n`.)
+   Non-string data still captures as JSON text.
+7. **No length caps.** Statements, arguments, interpolated text, result lines and
+   log messages grow as needed. A fixed buffer here truncates mid-UTF-8 sequence,
+   which turns ordinary long content into invalid encoding rather than merely
+   short content.
+
+Conformance case `13-transcript-safety.vs` pins every clause above.
 
 **Advanced constructs (oracle only; planned [impl])** — implemented in the JS
 oracle, `planned` for the C core, and *not* required for reference conformance:
@@ -574,6 +753,31 @@ that claim them (Hormiga).
 ## 12. Open spec questions
 - Undo across holiday-backed data: the boundary between undoable owned-mantle
   edits and non-undoable external writes (§10) needs defining.
+- **Scope of the undoable slice.** It is `mantles` + `active` today, which leaves
+  `bindings` outside it — so `mantle rm`/`rename` (§3.4) cannot repoint or drop
+  cross-mantle bindings without creating a mutation `undo` only half-restores.
+  Either bindings join the slice (and `bind`/`unbind` become undoable, which they
+  are not today), or dangling bindings become a `validate` diagnostic like
+  dangling links. Related: whether `config`/`domains`/`scripts` belong in the
+  slice at all.
+  **Reframing (Void Palabra, 2026-07-27):** *what a local user can take back* and
+  *what may be sent to another machine* are two different questions, and forcing one
+  answer on both is probably what makes this hard. Palabra had to answer the second
+  and got a strictly narrower slice — `mantles` only, with `domains`/`bindings`/
+  `config`/`active` as **peer-local resolution** that never syncs. Their forcing
+  argument is not aesthetic: a domain carries real `build`/`deploy` commands (§3.5),
+  so syncing one as content would execute one device's deploy command on another
+  device. A mantle should reference a domain *by name* and each peer resolve it
+  locally — the same reason a git remote's filesystem path is not cloned. Core's undo
+  slice may keep `active` even though a sync slice must not; noticing that they are
+  allowed to differ is the useful move.
 - Whether `layout`/`rules`/`relations` stay reserved or get a real consumer.
+- **`layout.edges` endpoints are mutable names** (§3.7), which `rename` repoints
+  (§3.4). Coherent for one user; across peers, two who concurrently rename a rune and
+  add an edge to it produce edge sets that cannot be reconciled by name alone. Noted,
+  not scheduled — Void Palabra (2026-07-27) reports their OR-Set join can handle it by
+  resolving names to `spirit.id` before comparing, and asked for no change. If link
+  storage is ever revisited, `spirit.id`-keyed endpoints would remove the ambiguity at
+  the cost of a migration.
 - Whether the fundamental tag axes are frozen or application-extensible.
 - The exact `render`/`deploy` contract for non-file-backed domains (§3.5, §9).

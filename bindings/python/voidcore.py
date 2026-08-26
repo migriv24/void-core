@@ -24,6 +24,205 @@ from typing import Any, Optional
 _EFFECT_FN = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p)
 
 
+def quote_arg(value: str) -> str:
+    r"""Wrap `value` as exactly ONE dispatcher argument (SPEC §6.1).
+
+    Every host that stores free text through the dispatcher needs this, and three
+    codebases have now written it independently and gotten it wrong — twice with
+    silent, content-level corruption (Void Hormiga, 2026-08-17). It is a pure string
+    function and needs no engine, so import it from here rather than rewriting it.
+
+    The tokenizer strips bare quote characters, and inside single quotes honors
+    exactly one escape: ``\'``. Single-quoting therefore carries spaces, double
+    quotes, newlines and backslashes — with one trap. A value *ending* in a backslash
+    would place ``\`` immediately before the closing ``'``, which the tokenizer reads
+    as an escaped apostrophe: the argument never closes, silently swallowing the rest
+    of the line, and dispatch still reports ``ok``. Trailing backslashes are emitted
+    *outside* the quotes, where a backslash is literal and — being neither whitespace
+    nor a quote — still belongs to the same token.
+
+        >>> quote_arg("don't")
+        "'don\\'t'"
+        >>> quote_arg("C:\\")          # the case the obvious helper corrupts
+        "'C:'\\"
+    """
+    head = value.rstrip("\\")
+    return "'" + head.replace("'", "\\'") + "'" + value[len(head):]
+
+
+class UnterminatedQuote(ValueError):
+    """A quoted run was still open at end of input (SPEC §6.1 rule 5).
+
+    Since 0.2.7 this is an error rather than a silent run-to-end-of-input. That
+    single change is what converts this whole bug class from *quiet* to *loud*:
+    before it, a mis-quoted argument swallowed the rest of the line — or, in a
+    transcript, the rest of the file — and dispatch still returned ``ok: true``.
+    """
+
+    def __init__(self, message: str, line: int = 0):
+        super().__init__(message)
+        self.line = line
+
+
+def split_args(line: str) -> list[str]:
+    r"""Tokenize one command line exactly as the dispatcher will (SPEC §6.1).
+
+    The *decoder* half of the codec, and the half hosts forget to write. A host
+    that reviews a proposed command before dispatching it — a submission, a
+    harvested dataset, an agent's transcript — must be able to ask "what will this
+    actually do" with the same tokenizer that will do it, rather than guessing.
+
+    Pure Python: no engine, no build. It is the inverse of :func:`quote_arg`, and
+    the law they satisfy together is pinned by a property test:
+
+        >>> split_args(quote_arg("a\nb  'c'  \\")) == ["a\nb  'c'  \\"]
+        True
+
+        >>> split_args("set v bio 'two words'")
+        ['set', 'v', 'bio', 'two words']
+        >>> split_args("a'b'c")                      # quoting is strip-anywhere
+        ['abc']
+        >>> split_args("set v bio 'oops")
+        Traceback (most recent call last):
+            ...
+        voidcore.UnterminatedQuote: unterminated quote (SPEC §6.1 rule 5)
+    """
+    out: list[str] = []
+    buf: list[str] = []
+    quote = ""
+    started = False
+    i = 0
+    n = len(line)
+    while i < n:
+        c = line[i]
+        if not quote and c.isspace():
+            if started:
+                out.append("".join(buf))
+                buf.clear()
+                started = False
+            i += 1
+            continue
+        started = True
+        if quote:
+            # rule 3: inside single quotes the ONLY escape is \'
+            if quote == "'" and c == "\\" and i + 1 < n and line[i + 1] == "'":
+                buf.append("'")
+                i += 2
+                continue
+            if c == quote:            # rule 2: the closing quote is stripped
+                quote = ""
+                i += 1
+                continue
+        elif c in "'\"":              # rule 2: the opening quote is stripped
+            quote = c
+            i += 1
+            continue
+        buf.append(c)
+        i += 1
+    if quote:                          # rule 5
+        raise UnterminatedQuote("unterminated quote (SPEC §6.1 rule 5)")
+    if started:
+        out.append("".join(buf))
+    return out
+
+
+#: SPEC §8 control words. A transcript containing none of them is *flat* — its
+#: effect can be read off its statements without simulating it, which is exactly
+#: what a host gating a proposed transcript needs to know.
+CONTROL_WORDS = frozenset(
+    "if elif else while repeat foreach break continue return halt let def try "
+    "catch include call on wait".split()
+)
+
+
+def split_transcript(src: str) -> list[dict]:
+    r"""Split a transcript into the statements it will run (SPEC §6.1 + §8).
+
+    Boundaries are newline and ``;`` **outside quoted runs** — so a newline inside
+    a value is data, not a new command — and ``#`` comments are dropped. Each
+    statement comes back as ``{"line", "text", "argv", "flat"}``.
+
+    This is the function a submission gate should be built on. Reviewing the raw
+    text instead is what lets an injected line hide inside a value:
+
+        >>> t = "set visitor bio 'weekends.\nset treasurer email attacker@evil'"
+        >>> cmds = split_transcript(t)
+        >>> len(cmds)                       # ONE command, not two
+        1
+        >>> cmds[0]["argv"][0]
+        'set'
+
+    Raises :class:`UnterminatedQuote` (with ``.line``) rather than returning a
+    plausible-looking partial parse.
+    """
+    cmds: list[dict] = []
+    buf: list[str] = []
+    quote = ""
+    line_no = 1
+    stmt_line = 1
+    flat = True
+    i = 0
+    n = len(src)
+
+    def flush() -> None:
+        text = "".join(buf).rstrip()
+        buf.clear()
+        if not text:
+            return
+        argv = split_args(text)          # may raise; .line is attached by caller
+        cmds.append({"line": stmt_line, "text": text, "argv": argv})
+
+    while i <= n:
+        c = src[i] if i < n else ""
+        if not c or (not quote and c in "\n;"):
+            try:
+                flush()
+            except UnterminatedQuote as e:
+                raise UnterminatedQuote(
+                    f"{e} — the statement on line {stmt_line} swallows the rest "
+                    "of the transcript",
+                    stmt_line,
+                ) from None
+            if not c:
+                break
+            if c == "\n":
+                line_no += 1
+            i += 1
+            continue
+        if not quote and c == "#" and not buf:
+            while i < n and src[i] != "\n":
+                i += 1
+            continue
+        if not buf and c in " \t":
+            i += 1
+            continue
+        if not buf:
+            stmt_line = line_no
+        if not quote and c in "{}":
+            flat = False
+        if quote:
+            if quote == "'" and c == "\\" and i + 1 < n and src[i + 1] == "'":
+                buf.append(src[i : i + 2])
+                i += 2
+                continue
+            if c == quote:
+                quote = ""
+        elif c in "'\"":
+            quote = c
+        buf.append(c)
+        i += 1
+
+    if quote:
+        raise UnterminatedQuote(
+            "unterminated quote (SPEC §6.1 rule 5): the transcript ends inside a "
+            "quoted value",
+            stmt_line,
+        )
+    for cmd in cmds:
+        cmd["flat"] = flat and bool(cmd["argv"]) and cmd["argv"][0] not in CONTROL_WORDS
+    return cmds
+
+
 def _default_dll_path() -> str:
     """Locate libvoidcore.dll relative to the repo (built by CMake into core/build/bin)."""
     here = os.path.dirname(os.path.abspath(__file__))
@@ -75,6 +274,19 @@ class VoidCore:
         L.vc_version.restype = ctypes.c_char_p
         L.vc_tag_match.restype = ctypes.c_int
         L.vc_tag_match.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+        # The §6.1 codec (0.2.7+). Bound leniently so this binding still loads
+        # against an older library — the pure-Python `quote_arg` / `split_args` /
+        # `split_transcript` cover the same ground with no engine at all, and a
+        # host pinned to an old build should not lose the whole binding over it.
+        self._has_codec = True
+        for name in ("vc_arg_quote", "vc_argv_split_json", "vc_transcript_split_json"):
+            try:
+                fn = getattr(L, name)
+            except AttributeError:
+                self._has_codec = False
+                continue
+            fn.restype = ctypes.c_void_p
+            fn.argtypes = [ctypes.c_char_p]
 
     def _take(self, ptr: int) -> str:
         """Read a heap string returned by the lib, then free it."""
@@ -110,6 +322,49 @@ class VoidCore:
         if r < 0:
             raise ValueError(f"vc_tag_match: malformed input (expr={expr!r})")
         return bool(r)
+
+    # ── the §6.1 codec, as the C core implements it (SPEC §6.1) ─────────────
+    # These are stateless library functions, exposed here as methods only because
+    # this class already owns the loaded library. The pure-Python `quote_arg`,
+    # `split_args` and `split_transcript` at module scope do the same job with no
+    # build at all — use those unless you specifically want to cross-check the two
+    # implementations against each other (voidcore/codec_test.py does).
+
+    def _need_codec(self) -> None:
+        if not self._has_codec:
+            raise NotImplementedError(
+                f"this libvoidcore ({self.version}) predates the exported §6.1 "
+                "codec (0.2.7); use the pure-Python quote_arg / split_args / "
+                "split_transcript instead"
+            )
+
+    def arg_quote(self, value: str) -> str:
+        """Quote a value as one dispatcher argument, via the C codec."""
+        self._need_codec()
+        ptr = self._lib.vc_arg_quote(value.encode("utf-8"))
+        return self._take(ptr)
+
+    def argv_split(self, line: str) -> dict:
+        """Tokenize a command line exactly as `dispatch` will.
+
+        Returns ``{"ok": True, "argv": [...]}`` or, for a quoted run that never
+        closed (§6.1 rule 5), ``{"ok": False, "error": ..., "argv": None}``.
+        """
+        self._need_codec()
+        ptr = self._lib.vc_argv_split_json(line.encode("utf-8"))
+        return json.loads(self._take(ptr))
+
+    def transcript_split(self, src: str) -> dict:
+        """Split a transcript into the statements it will run.
+
+        The decoder a host needs before dispatching someone else's transcript:
+        boundaries are newline and ``;`` outside quoted runs, so a newline inside
+        a value stays inside it. ``flat`` reports whether the transcript is a
+        plain list of commands (no blocks, no §8 control words).
+        """
+        self._need_codec()
+        ptr = self._lib.vc_transcript_split_json(src.encode("utf-8"))
+        return json.loads(self._take(ptr))
 
     def register_glyph(self, glyph: dict) -> bool:
         """Declare a rune type (host app config; not part of exported state)."""

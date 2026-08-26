@@ -22,7 +22,7 @@ white-on-white text. Responsiveness to an app's brand shouldn't cost legibility.
 # What `resolve_theme(palette)` guarantees
 
 It turns a declared palette into a **complete** color set (17 roles, always all present) where
-every text/background pair meets **WCAG AA**:
+every text/background pair meets **[WCAG AA](/sources/wcag-contrast.md)**:
 
 - body text (`ink` vs `bg` and vs the card surfaces) — **4.5:1**;
 - accents and semantic colors as text (`primary`/`accent`/`ok`/`warn`/`err` vs `bg`) — **3:1**

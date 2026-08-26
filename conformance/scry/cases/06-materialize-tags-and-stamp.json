@@ -1,0 +1,91 @@
+{
+  "case": "06-materialize-tags-and-stamp",
+  "description": "`into: \"tags\"` appends each resolved field as a `field:value` tag, skipping any that is already present (so re-materializing does not grow the list). `stamp` names a content field that records the PROVENANCE of what was frozen — the §4 content hash of that rune's resolved fields, so an archive carries proof of which snapshot it captured. The stamp is written to `content` even when the values went to `tags`, and it is reproducible: same resolved fields, same stamp, on any machine and at any time.",
+  "op": "materialize",
+  "into": "tags",
+  "stamp": "snapshot",
+  "resolved": {
+    "alpha": {
+      "status": "live",
+      "tier": "gold"
+    },
+    "beta": {
+      "status": "live"
+    }
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "item",
+        "content": {},
+        "tags": [
+          "status:live",
+          "kept"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "beta"
+        },
+        "glyph": "item",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "gamma"
+        },
+        "glyph": "item",
+        "content": {},
+        "tags": []
+      }
+    ]
+  },
+  "expect": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "item",
+        "content": {
+          "snapshot": "e7f83bc939cc4457"
+        },
+        "tags": [
+          "status:live",
+          "kept",
+          "tier:gold"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "beta"
+        },
+        "glyph": "item",
+        "content": {
+          "snapshot": "290f663cc2ed7fec"
+        },
+        "tags": [
+          "status:live"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "gamma"
+        },
+        "glyph": "item",
+        "content": {},
+        "tags": []
+      }
+    ]
+  }
+}

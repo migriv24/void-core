@@ -1,0 +1,54 @@
+{
+  "case": "03-reserved-tags",
+  "description": "The two reserved tag matches, which a port that only searches the `tags` array will miss entirely: a rune matches its own `spirit.name` used as a tag, and it matches `glyph:<its glyph>`. Adjacency of two atoms is an implicit AND, so `glyph:task status:live` means both. These are the rules in `vc_rune_has_tag`, and they are why a tag expression can select 'that one rune' or 'everything of this kind' without any tag being authored.",
+  "op": "tag_match",
+  "expr": "glyph:task status:live",
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "task",
+        "tags": [
+          "status:live"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "beta"
+        },
+        "glyph": "note",
+        "tags": [
+          "status:live"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "glyph:task"
+        },
+        "glyph": "note",
+        "tags": [
+          "status:live"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_d",
+          "name": "delta"
+        },
+        "glyph": "task",
+        "tags": []
+      }
+    ]
+  },
+  "expect": {
+    "names": [
+      "alpha",
+      "glyph:task"
+    ]
+  }
+}

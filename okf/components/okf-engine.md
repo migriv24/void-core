@@ -4,7 +4,7 @@ title: OKF engine
 description: The Open Knowledge Format as a Void Core holiday — consume, produce, and validate knowledge bundles.
 resource: holidays/okf/__main__.py
 tags: [status:current, audience:dev, audience:library, confidence:asserted]
-timestamp: 2026-07-01T00:00:00Z
+timestamp: 2026-08-09T00:00:00Z
 ---
 
 The **OKF engine** makes [Open Knowledge Format](/references/okf-spec.md) bundles a
@@ -33,15 +33,37 @@ The engine exposes the bundle as **data** (`ls`/`get`/`query`/`analyze`); a bund
 visualizer of its own. This bundle you are reading is the engine's hand-authored
 **conformance fixture**.
 
+# Generated bundles: the two halves of a concept
+
+A bundle can also be *produced from a running program* — a harvester emits
+[dispatcher](/concepts/dispatcher.md) commands that build [runes](/concepts/rune.md),
+and `produce` writes the markdown (Void Maiz's surface census is the first such client;
+see [UI / UX](/concepts/ui-ux.md)). That raises the machine-half/human-half problem: a
+re-harvest must not eat commentary a person wrote about a generated page.
+
+The engine answers it **without any text merge**, because the truth is a rune and not a
+file: the harvest lives in `content.body`, human prose in `content.notes` — *different
+fields of the same rune* — and `produce` writes body, then notes, separated by an
+`<!-- okf:notes -->` marker. A re-harvest overwrites `body` and structurally **cannot**
+touch `notes`. `consume` splits the marker back into the two fields, so the round-trip
+stays lossless; a file without the marker is all body (permissive consumption), and a
+rune without notes produces byte-identical output to before. Notes are authored through
+the dispatcher (`set <concept> notes "…"`) and their markdown links join the graph like
+any other.
+
 # Status
 
 `current` — **all three jobs have a working v0.1** at `holidays/okf/`
 (Python): **consume** (`bundle.py` parser + model + SPEC §5 tag-filter, plus
 `voidcore_bridge.py` mapping concepts into real [runes](/concepts/rune.md) through the
 C core), **produce** (`voidcore_bridge.py` — mantle → bundle with the `--where`
-library filter; round-trips losslessly: 19 concepts + 92 [links](/concepts/links.md)
-identical), and **validate** (`validate.py` — conformance + resource-freshness drift +
-honesty-convention lint). CLI: `python holidays/okf ls|get|query|validate|produce|analyze`,
+library filter, plus the `body`/`notes` split above; round-trips losslessly: 50 concepts
++ 254 [links](/concepts/links.md) identical), and **validate** (`validate.py` — conformance + resource-freshness drift +
+honesty-convention lint). CLI: `python holidays/okf ls|get|query|validate|produce|analyze`
+— a read surface governed by the same altitude rule as the dispatcher
+([context optimization](/design/context-optimization.md)), so **`get --head`** returns the
+header and link graph without the body (the triage read), and all output is UTF-8 with
+`errors="replace"` so a concept using mathematical notation is readable on any console —
 plus `manifest.py` (the [app-manifest](/concepts/app-manifest.md) reader). Still `planned`:
 exposing these (and [graph analytics](/concepts/graph-analytics.md)) as
 [dispatcher](/concepts/dispatcher.md) verbs in the core itself (today they are a

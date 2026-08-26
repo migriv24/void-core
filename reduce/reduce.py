@@ -20,8 +20,16 @@ The shape (resolved forks):
   general (interaction combinators are Turing-complete), so a `max_steps` guard raises
   `ReduceError`.
 
+- **Rule-created agents are named from the redex** (not from a counter), so reduction is
+  reproducible across *peers*: two reducers that pick different — equally valid — redex
+  orders produce byte-identical ids, not merely nets equal up to renaming. See
+  `_fresh_for`. (Void Palabra's ask, 2026-07-27: merge-by-reduction needs the normal
+  form to be the same *bytes*, not the same shape.)
+
 A **rule** is `fn(a, b, fresh) -> Rewrite`: given the two redex agents (in the order the
-rule was registered) and a fresh-id minter, return new agents + new wires. Wires address
+rule was registered) and a fresh-id minter, return new agents + new wires. A rule MUST
+call `fresh()` a deterministic number of times in a deterministic order for given
+`(a, b)` — that is what keeps the derived ids stable. Wires address
 the redex's freed auxiliary ports symbolically with `A(i)` / `B(i)` (the *external*
 partner of a's / b's aux port i), or a new agent's port `(id, idx)` directly. This is the
 locality discipline: a rule only rewires the redex's own ports.
@@ -37,6 +45,7 @@ rejection (raises with the locality error) for hosts that want the old guarantee
 """
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
@@ -76,6 +85,37 @@ class Rewrite:
 
 
 Rule = Callable[[Agent, Agent, Callable[[], str]], Rewrite]
+
+
+# ── identity of rule-created agents: derived from the redex, never from the order ──
+def _fresh_for(ga: str, gb: str, a_id: str, b_id: str) -> Callable[[], str]:
+    """Build the id minter for one rewrite. Ids are derived from **which rule fired on
+    which two agents**, plus an ordinal within that rewrite — never from a running counter.
+
+    This is what makes reduction reproducible across *peers*. Confluence promises two
+    reducers the same normal form **up to renaming**; a sequential counter cashes that
+    promise out as `_r1`, which names "the first agent the first firing happened to
+    create" — a fact about the schedule, not about the net. Two peers picking different
+    (equally valid) redex orders then produce structurally identical nets whose agents
+    have different names, and since a name is a rune's `spirit.name` — the thing
+    `layout.edges` references and tag expressions match — the divergence is real and not
+    cosmetic. Deriving from the redex removes the schedule from the equation: by
+    induction from the input agents (identical on both peers), every derived id is too.
+
+    The pair is unordered in both components, so the id does not depend on which side the
+    executor happened to call A. The ordinal makes a rule's own copies distinct and is
+    deterministic because a rule calls `fresh()` a fixed number of times, in a fixed
+    order, for given (a, b) — that is a requirement on rules, met by everything below.
+    Purity is unaffected: hashing reads no clock and no RNG."""
+    key = "\x1f".join(sorted((ga, gb)) + sorted((a_id, b_id)))
+    n = [0]
+
+    def fresh() -> str:
+        n[0] += 1
+        digest = hashlib.blake2b(f"{key}\x1f{n[0]}".encode("utf-8"),
+                                 digest_size=6).hexdigest()
+        return f"_r{digest}"
+    return fresh
 
 
 # ── the reducer ───────────────────────────────────────────────────────────────────
@@ -118,13 +158,14 @@ class Reducer:
         return sorted(out)
 
     # ── one rewrite step ─────────────────────────────────────────────────────────
-    def _fire(self, net: Net, a_id: str, b_id: str, fresh: Callable[[], str],
+    def _fire(self, net: Net, a_id: str, b_id: str,
               strict_locality: bool = False) -> None:
         a, b = net.agents[a_id], net.agents[b_id]
         ga, gb, fn = self.rules[frozenset((a.glyph, b.glyph))]
         # present agents to the rule in its registered order
         if a.glyph != ga or b.glyph != gb:
             a, b = b, a
+        fresh = _fresh_for(ga, gb, a.id, b.id)
         # snapshot external partners of the redex's aux ports *before* deletion
         ext = {
             "A": {i: net.partner((a.id, i)) for i in range(1, a.arity + 1)},
@@ -231,12 +272,6 @@ class Reducer:
         work = net.copy().check()
         opq = set(opaque or ())
         choose = pick or (lambda pairs: pairs[0])
-        cnt = [0]
-
-        def fresh() -> str:
-            cnt[0] += 1
-            return f"_r{cnt[0]}"
-
         steps = 0
         while True:
             pairs = self.active_pairs(work, opq)
@@ -249,7 +284,7 @@ class Reducer:
                     f"this net (interaction combinators are Turing-complete — supply a "
                     f"terminating rule set, or mark agents opaque).")
             a_id, b_id = choose(pairs)
-            self._fire(work, a_id, b_id, fresh, strict_locality)
+            self._fire(work, a_id, b_id, strict_locality)
 
     # ── a confluence/conflict report for the restricted subset ────────────────────
     def validate(self, signatures: Optional[dict] = None) -> list[str]:

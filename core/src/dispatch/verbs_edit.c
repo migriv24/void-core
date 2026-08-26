@@ -117,9 +117,13 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
     }
 
   } else if (!strcmp(v, "mantle")) {
+    /* SPEC §3.4/§7.2 — the mantle lifecycle family, the mantle-level analogues
+     * of `rune new|rm|rename`. All three mutate the undoable slice
+     * (mantles + active), so they take a normal undo frame. */
+    cJSON *mantles = cJSON_GetObjectItemCaseSensitive(state, "mantles");
+    cJSON *active = cJSON_GetObjectItemCaseSensitive(state, "active");
     if (a.count >= 3 && !strcmp(a.items[1], "new")) {
       const char *name = a.items[2];
-      cJSON *mantles = cJSON_GetObjectItemCaseSensitive(state, "mantles");
       int dup = 0;
       cJSON *mm = NULL;
       cJSON_ArrayForEach(mm, mantles) {
@@ -129,14 +133,64 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
         res = res_fail("mantle exists: %s", name);
       } else {
         cJSON_AddItemToArray(mantles, vc_mantle_new(name, NULL));
-        cJSON *active = cJSON_GetObjectItemCaseSensitive(state, "active");
         cJSON_ReplaceItemInObjectCaseSensitive(active, "mantle",
                                                cJSON_CreateString(name));
         res = res_make(1);
         res_line(res, "created mantle: %s (active)", name);
       }
+    } else if (a.count >= 3 && !strcmp(a.items[1], "rm")) {
+      /* Removing the ACTIVE mantle deactivates (the `use` / `cd /` cold-start
+       * semantics) rather than refusing — the core does the obvious thing
+       * instead of making the caller `use` elsewhere first. Removing the last
+       * mantle is allowed: root-`ls` already handles an empty mantle list. */
+      const char *name = a.items[2];
+      int idx = 0, found = -1;
+      cJSON *mm = NULL;
+      cJSON_ArrayForEach(mm, mantles) {
+        if (!strcmp(vc_mantle_name(mm), name)) { found = idx; break; }
+        idx++;
+      }
+      if (found < 0) {
+        res = res_fail("no such mantle: %s", name);
+      } else {
+        cJSON *am = cJSON_GetObjectItemCaseSensitive(active, "mantle");
+        int was_active = cJSON_IsString(am) && !strcmp(am->valuestring, name);
+        cJSON_DeleteItemFromArray(mantles, found);
+        res = res_make(1);
+        if (was_active) {
+          cJSON_ReplaceItemInObjectCaseSensitive(active, "mantle",
+                                                 cJSON_CreateNull());
+          res_line(res, "removed mantle: %s (no active mantle)", name);
+        } else {
+          res_line(res, "removed mantle: %s", name);
+        }
+      }
+    } else if (a.count >= 4 && !strcmp(a.items[1], "rename")) {
+      const char *old = a.items[2], *nw = a.items[3];
+      cJSON *src = NULL, *mm = NULL;
+      int dup = 0;
+      cJSON_ArrayForEach(mm, mantles) {
+        const char *nm = vc_mantle_name(mm);
+        if (!src && !strcmp(nm, old)) src = mm;
+        if (!strcmp(nm, nw)) dup = 1;
+      }
+      if (!src) {
+        res = res_fail("no such mantle: %s", old);
+      } else if (dup) {
+        res = res_fail("mantle exists: %s", nw);
+      } else {
+        cJSON_ReplaceItemInObjectCaseSensitive(src, "name",
+                                               cJSON_CreateString(nw));
+        cJSON *am = cJSON_GetObjectItemCaseSensitive(active, "mantle");
+        if (cJSON_IsString(am) && !strcmp(am->valuestring, old))
+          cJSON_ReplaceItemInObjectCaseSensitive(active, "mantle",
+                                                 cJSON_CreateString(nw));
+        res = res_make(1);
+        res_line(res, "renamed mantle %s -> %s", old, nw);
+      }
     } else {
-      res = res_fail("usage: mantle new <name>");
+      res = res_fail("usage: mantle new <name> | mantle rm <name> | "
+                     "mantle rename <old> <new>");
     }
 
   } else if (!strcmp(v, "rune")) {

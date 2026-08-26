@@ -54,3 +54,14 @@ claim `current` without a `resource:` link to the code that backs it.
 * [SPEC.md](/references/spec.md) - the normative contract; section → concept map
 * [Glossary](/references/voidcore-glossary.md) - OKF ⇄ Void Core dictionary
 * [OKF spec](/references/okf-spec.md) - the format this bundle conforms to
+
+# Sources — external work we lean on
+
+One page per external work, cited by ordinary body link so `linked from` names the blast
+radius. All `confidence:asserted` (recalled, not yet checked) — see [sources/](/sources/index.md).
+
+* [Lafont — interaction nets](/sources/lafont-interaction-nets.md) - the foundation of Reduce
+* [Ousterhout — A Philosophy of Software Design](/sources/ousterhout-philosophy-of-software-design.md) - where "deep module" comes from
+* [WCAG — contrast](/sources/wcag-contrast.md) - the numbers `theme.py` implements
+* [Google Cloud — OKF](/sources/google-open-knowledge-format.md) - the format itself
+* [Pocock — Skills For Real Engineers](/sources/pocock-skills-for-real-engineers.md) - the adapted skills (MIT)

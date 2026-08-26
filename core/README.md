@@ -41,7 +41,8 @@ core/
     glyph/glyph.c        # the glyph registry (SPEC §3.3)
     tags/tag.c           # tag membership + filter grammar + axes (SPEC §5)
     dispatch/
-      args.c             # quote-aware argv tokenizer (SPEC §6)
+      args.c             # THE §6.1 quote automaton + argv tokenizer/joiner
+      codec.c            # the §6.1 codec, exported (quote / split / transcript)
       dispatch.c         # the one command router -> {ok,lines,data} (SPEC §6,§7)
       undo.c             # undo/redo snapshots (SPEC §6)
       lifecycle.c        # _baseline dirty-tracking (status/diff/revert)
@@ -72,10 +73,14 @@ void        vc_free_str(char *);                  // free returned strings
 void        vc_destroy(VC_Manager *);
 const char *vc_version(void);
 int         vc_tag_match(const char *expr, const char *tags_json); // SPEC §5, stateless
+char       *vc_arg_quote(const char *value);            // §6.1 encode, stateless
+char       *vc_argv_split_json(const char *line);       // §6.1 decode, stateless
+char       *vc_transcript_split_json(const char *src);  // §6.1 decode a transcript
 ```
 Any returned `char*` is freed with `vc_free_str`. A `VC_Manager` is **not
 thread-safe** — serialize calls per manager (SPEC §6); stateless functions
-(`vc_tag_match`, `vc_alloc_str`, `vc_free_str`, `vc_version`) are safe anywhere.
+(`vc_tag_match`, the three codec calls, `vc_alloc_str`, `vc_free_str`, `vc_version`)
+are safe anywhere.
 
 ## Verbs implemented
 Read: `version help glyphs mantles where rune(ls) ls find describe get cat tree
@@ -116,11 +121,33 @@ int         vc_tag_match(const char *expr, const char *tags_json); // §5 gramma
 int         vc_register_glyph(VC_Manager *, const char *glyph_json);
 void        vc_set_log_sink(VC_Manager *, VC_LogFn, void *user);       // §9
 void        vc_set_effect_handler(VC_Manager *, VC_EffectFn, void *user); // §9 holiday
+char       *vc_arg_quote(const char *value);            // §6.1, stateless
+char       *vc_argv_split_json(const char *line);       // §6.1, stateless
+char       *vc_transcript_split_json(const char *src);  // §6.1, stateless
 ```
 Glyphs and the two callbacks are host config — NOT in the exported state; set them
 after each `vc_create`. The **effect handler** is the holiday boundary: the core
 does its model-side work (e.g. `save` snapshots the baseline) and calls the host
 for the real I/O (write files, deploy, build, preview).
+
+### The §6.1 codec
+
+A dispatcher argument carries an arbitrary **NUL-free byte string**, and
+`split(quote(v)) == [v]` for every such `v` — newlines and quotes and backslashes
+included. Both halves are exported because §6.1 spent a release as a specification
+standing in for a component, and five independent implementations of it were wrong,
+this one among them: the Voidscript statement reader, the condition lexer and the
+interpolator each carried their own quote tracking, none of which implemented the
+`'` escape, and a correctly-quoted value could therefore execute as commands
+(`13-transcript-safety.vs`). There is now exactly one quote automaton in the tree
+(`vc_quote_step`); a second one anywhere is a bug.
+
+`vc_transcript_split_json` is the **decoder for a whole transcript** — the function
+a host needs to review a proposed run before dispatching it. It cuts on newline and
+`;` *outside* quoted runs, drops comments, returns each statement's `argv`, refuses
+an unterminated quote (§6.1 rule 5 is an error since 0.2.7), and reports whether the
+transcript is `flat` — no blocks, no §8 control words — which is the property that
+makes its effect readable without simulating it.
 
 ## What's implemented (all five Void Core parts)
 - **Data model** (SPEC §3): spirit/rune/glyph/mantle/domain/binding over cJSON;

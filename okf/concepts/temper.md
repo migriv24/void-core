@@ -32,5 +32,14 @@ pass automatically after every mutating verb — so invariants hold even for raw
 edits (a key correctness ask for any app that exposes a raw dispatcher to users). Rules are
 **authorable as data** (`voidcore.spec.temper_from_spec`, stored under `config.transform`
 and loaded via `Dispatcher.load_from_config()`), and a multi-write pass applies as **one
-atomic undo frame** via `batch`. Still `planned`: the author-facing ergonomics of editing
-rules *inside a mantle* (see [roadmap](/roadmap.md)). Design: [transform layers](/design/transform-layers.md).
+atomic undo frame** via `batch`.
+
+**Portable contract** — `conformance/temper/` (8 pure-JSON cases + a ~90-line runner),
+so a host implementing Temper in another language can be *checked* rather than left to
+rebuild it from this page. The runner enforces the two laws on every case (idempotence,
+purity) and pins the details ports get wrong: rules are an ordered pipeline (not
+constraints solved to a fixed point), `member_or_default` leaves an already-valid pointer
+alone, and an unknown rule or missing argument must be **rejected, never skipped**.
+
+Still `planned`: the author-facing ergonomics of editing rules *inside a mantle* (see
+[roadmap](/roadmap.md)). Design: [transform layers](/design/transform-layers.md).

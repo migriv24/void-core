@@ -42,14 +42,38 @@ invokes `script run` — so state-document loading is itself exercised by every 
 | `07-posix.vs` | §7.1 | POSIX aliases as argument-aware desugarings (`mkdir`/`pwd`/`grep`/`man`/`cp`/`mv`/`rm`/`cd`), alias mutations undo like their canonical form, root-`ls` lists mantles, `cd /` deactivates |
 | `08-capture-flags.vs` | §6, §7, §8 | regression (Hormiga handoff 2026-07-03): a trailing flag (`--json`) after a `--tag <expr>` value must not join into the tag expression — direct, `$(…)` capture, and `foreach` paths |
 | `09-config.vs` | §7 | the `config` verb (get/set/list), scalar coercion, and its isolation from the undo slice (regression: VLS handoff 2026-07-06) |
+| `10-place.vs` | §3.2, §6, §7.2, §9 | `place` and the view slice — on the mutation spine, no undo frame, undo/redo overlays surviving runes' placements, failed `batch` still rolls back |
+| `11-mantle-lifecycle.vs` | §3.4, §7.1, §7.2 | `mantle rm`/`rename` (+ `rmdir`), rm-of-active deactivates, name reuse after rm, undo restores mantle + runes + active |
+| `12-arg-quoting.vs` | §6.1 | argument quoting — quote-stripping, the single `\'` escape, strip-anywhere quoting, literal backslashes, and the trailing-backslash trap — whose output is now REFUSED (rule 5) rather than silently truncating a value |
+| `13-transcript-safety.vs` | §6.1, §8.1 | a value in a transcript is DATA, never syntax — newline/`;`/`}` inside a quoted argument, `'` not closing the statement, single quotes suppressing `$` expansion, an expansion staying exactly one argument (including empty), and `${var}` as an expansion rather than a block |
 
 Not covered here (tested elsewhere or host-dependent): the §9 adapter/effect seam
 (`bindings/python/effect_test.py`), §9 attribution + the mutation spine
-(`bindings/python/attribution_test.py`), the **[seam]** transformation verbs
-(`voidcore/dispatch_test.py` and siblings, per §11), script arguments `$1`/`$@`
-(inline `script set` interpolates `$` before the source is stored), and the §8
-advanced constructs (oracle-only).
+(`bindings/python/attribution_test.py`), the dispatcher's **[seam]** integration of the
+transformation verbs (`voidcore/dispatch_test.py` and siblings, per §11), script
+arguments `$1`/`$@` (inline `script set` interpolates `$` before the source is stored),
+and the §8 advanced constructs (oracle-only).
 
-**The Reduce executor** has its own language-neutral contract + pure-JSON cases in
-[`reduce/`](reduce/README.md) — for hosts that implement the interaction-net
-executor outside the Python seam.
+## The transformation layers
+
+The three transform layers (SPEC §7 `[seam]`) live in Python, outside the C core, so a
+host in another language has to implement them itself. Each therefore has its own
+language-neutral contract + pure-JSON cases, in the same shape: a `README.md` stating
+the semantics, `cases/*.json`, and a small portable `run.py` (~100 lines) to port.
+
+| suite | layer | run |
+|---|---|---|
+| [`reduce/`](reduce/README.md) | the interaction-net executor | `python conformance/reduce/run.py` |
+| [`temper/`](temper/README.md) | normalization (idempotent, context-blind) | `python conformance/temper/run.py` |
+| [`scry/`](scry/README.md) | projection (the read side) | `python conformance/scry/run.py` |
+
+Each suite's runner also checks that layer's **laws** on every case, not only where a
+case asks: confluence + schedule-independent identity for Reduce, idempotence + purity
+for Temper, purity for Scry. An implementation that matches every expected output but
+breaks a law is not conforming, and the runner says so by name.
+
+> These exist because a layer without a contract gets **reinvented rather than ported**.
+> Void Maiz ported Reduce against `reduce/` and verified it; with no equivalent for the
+> other two, Maiz rebuilt Scry and Void Hormiga rebuilt Temper from the concept pages.
+> Two hand-written copies of a normalization pass drift, and without case files the
+> drift is silent. (Observed by Void Palabra, 2026-07-27.)

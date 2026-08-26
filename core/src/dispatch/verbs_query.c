@@ -25,7 +25,7 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
         "bind bindings unbind batch relate unrelate related rule script";
     res = res_make(1);
     res_line(res, "verbs: %s", verbs);
-    res_line(res, "posix aliases: cd pwd rm mv cp mkdir grep man ? quit dump");
+    res_line(res, "posix aliases: cd pwd rm mv cp mkdir rmdir grep man ? quit dump");
     res_set_data(res, cJSON_CreateString(verbs));
 
   } else if (!strcmp(v, "mantles")) {

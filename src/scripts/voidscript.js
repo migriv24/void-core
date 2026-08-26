@@ -6,6 +6,8 @@
 //
 // runScript(src, { dispatch, logger, args }) -> { ok, lines, data }
 
+const { quoteArg } = require('../dispatch/args.js');
+
 // ── Signals ─────────────────────────────────────────────────────────
 class Halt { constructor(code) { this.code = code || 0; } }
 class Return { constructor(value) { this.value = value; } }
@@ -13,25 +15,52 @@ class Break {}
 class Continue {}
 
 // ── Tokenizer ───────────────────────────────────────────────────────
+// Quoting is SPEC §6.1's, and it has to be, because a WORD here becomes a
+// dispatcher argument. Before 0.2.7 this scanner had its own rules — no `\'`
+// escape, quotes as delimiters rather than strip-anywhere, and an unterminated
+// quote running silently to end of input — which is the same divergence the C
+// core carried in three separate places. The consequence is not cosmetic: a
+// value written the way §6.1 tells hosts to write it (`'don\'t …'`) closed its
+// quoted run early, and whatever followed the next newline became a statement.
+//
+// `lit` is a per-character mask of the token's value: '1' where the character
+// came from inside a SINGLE-quoted run. Single quotes suppress `$` expansion
+// (SPEC §8) — without that, a transcript built by correctly quoting somebody
+// else's text runs whatever `$(...)` that text contains.
 function tokenize(src) {
   const toks = [];
   let i = 0;
   const n = src.length;
-  const push = (type, value, quoted = false) => toks.push({ type, value, quoted });
+  const push = (type, value, quoted = false, lit = '') => toks.push({ type, value, quoted, lit });
   while (i < n) {
     const ch = src[i];
     if (ch === '#') { while (i < n && src[i] !== '\n') i++; continue; }
     if (ch === '\n' || ch === ';') { push('NL'); i++; continue; }
     if (ch === ' ' || ch === '\t' || ch === '\r') { i++; continue; }
     if (ch === '{' || ch === '}' || ch === '(' || ch === ')' || ch === ',') { push(ch); i++; continue; }
-    if (ch === '"' || ch === "'") {
-      const q = ch; i++; let s = '';
-      while (i < n && src[i] !== q) { s += src[i++]; }
-      i++; push('WORD', s, true); continue;
-    }
+    // one WORD: runs until an unquoted separator, crossing quote boundaries
+    // (rule 2 is strip-anywhere, so a'b'c is the single argument abc)
     let s = '';
-    while (i < n && !' \t\r\n;{}(),'.includes(src[i]) && src[i] !== '#') s += src[i++];
-    push('WORD', s, false);
+    let lit = '';
+    let quote = 0;
+    let sawQuote = false;
+    while (i < n) {
+      const c = src[i];
+      if (quote) {
+        // rule 3: inside single quotes the ONLY escape is \'
+        if (quote === "'" && c === '\\' && src[i + 1] === "'") { s += "'"; lit += '1'; i += 2; continue; }
+        if (c === quote) { quote = 0; i++; continue; }      // closing quote, stripped
+        s += c; lit += quote === "'" ? '1' : '0'; i++; continue;
+      }
+      if (c === '"' || c === "'") { quote = c; sawQuote = true; i++; continue; } // opening, stripped
+      if (' \t\r\n;{}(),'.includes(c) || c === '#') break;
+      s += c; lit += '0'; i++;
+    }
+    // rule 5 (0.2.7): a quoted run still open at end of input is an ERROR. It
+    // used to run to end of input, which is precisely what made this whole class
+    // of bug silent — the value swallowed the rest of the file, ok:true.
+    if (quote) throw new Error('Voidscript: unterminated quote (SPEC §6.1 rule 5)');
+    push('WORD', s, sawQuote, lit);
   }
   push('EOF');
   return toks;
@@ -144,11 +173,29 @@ function makeScope(parent) {
 function lookup(scope, name) { let s = scope; while (s) { if (s.vars.has(name)) return s.vars.get(name); s = s.parent; } return undefined; }
 function lookupFn(scope, name) { let s = scope; while (s) { if (s.funcs.has(name)) return s.funcs.get(name); s = s.parent; } return undefined; }
 
-function interp(text, scope) {
-  return String(text).replace(/\$\{(\w+)\}|\$(\w+)/g, (_, a, b) => {
-    const v = lookup(scope, a || b);
-    return v === undefined ? '' : String(v);
-  });
+// Expand $var / ${var}. `lit` (optional) is the per-character mask from the
+// tokenizer: a '$' whose mask character is '1' came from inside a single-quoted
+// run and is literal text, not an expansion (SPEC §8). Passing no mask keeps the
+// old unconditional behavior, which is right for text the script author wrote
+// directly (an `echo` body) and wrong for anything that carries a value.
+function interp(text, scope, lit) {
+  const s = String(text);
+  if (!lit) {
+    return s.replace(/\$\{(\w+)\}|\$(\w+)/g, (_, a, b) => {
+      const v = lookup(scope, a || b);
+      return v === undefined ? '' : String(v);
+    });
+  }
+  let out = '';
+  for (let i = 0; i < s.length;) {
+    if (s[i] !== '$' || lit[i] === '1') { out += s[i++]; continue; }
+    const m = /^\$\{(\w+)\}|^\$(\w+)/.exec(s.slice(i));
+    if (!m) { out += s[i++]; continue; }
+    const v = lookup(scope, m[1] || m[2]);
+    out += v === undefined ? '' : String(v);
+    i += m[0].length;
+  }
+  return out;
 }
 
 // Evaluate an expression token list to a JS value (numbers, strings, bools,
@@ -167,7 +214,7 @@ function evalExpr(tokens, scope) {
       next();
       let raw = t.value;
       if (!t.quoted && /^\$/.test(raw)) return lookup(scope, raw.slice(1).replace(/[{}]/g, ''));
-      raw = interp(raw, scope);
+      raw = interp(raw, scope, t.lit);
       if (!t.quoted) {
         if (raw === 'true') return true; if (raw === 'false') return false;
         if (raw !== '' && !isNaN(Number(raw))) return Number(raw);
@@ -199,12 +246,13 @@ function evalExpr(tokens, scope) {
   return orExpr();
 }
 
-// Rebuild a command string from tokens, interpolating $vars and re-quoting.
+// Rebuild a command string from tokens, expanding $vars and re-quoting each
+// token per §6.1. Re-quoting with quoteArg (rather than the old `"${v}"`, which
+// a value containing a double quote walked straight out of) is what makes the
+// round trip sound: splitArgs of the result yields exactly these tokens, so an
+// expanded value is one argument and can never become syntax.
 function tokensToCommand(tokens, scope) {
-  return tokens.map(t => {
-    const v = interp(t.value, scope);
-    return (t.quoted || /\s/.test(v)) ? `"${v}"` : v;
-  }).join(' ');
+  return tokens.map(t => quoteArg(interp(t.value, scope, t.lit))).join(' ');
 }
 function hasOperator(tokens) {
   return tokens.some(t => t.type === 'WORD' && ['==', '!=', '<', '>', '<=', '>=', '&&', '||', '!'].includes(t.value));

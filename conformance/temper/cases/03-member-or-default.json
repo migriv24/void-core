@@ -1,0 +1,130 @@
+{
+  "case": "03-member-or-default",
+  "description": "`member_or_default` canonicalizes a derived pointer — the 'thumb = images[0]' invariant. A pointer that IS a member of the source list is left alone (this is the case a naive 'always reset to [0]' implementation gets wrong); a pointer that is unset, or points at a since-removed item, is reset to source[index]; an empty source list yields `empty` (default null). A non-list source is left untouched.",
+  "spec": [
+    {
+      "rule": "member_or_default",
+      "target": "thumb",
+      "source": "images"
+    }
+  ],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "valid-pointer-kept"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "a.png",
+            "b.png"
+          ],
+          "thumb": "b.png"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "stale-pointer-reset"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "a.png",
+            "b.png"
+          ],
+          "thumb": "removed.png"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "unset-pointer"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "a.png"
+          ]
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_d",
+          "name": "empty-source"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [],
+          "thumb": "gone.png"
+        },
+        "tags": []
+      }
+    ]
+  },
+  "expect": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "valid-pointer-kept"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "a.png",
+            "b.png"
+          ],
+          "thumb": "b.png"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "stale-pointer-reset"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "a.png",
+            "b.png"
+          ],
+          "thumb": "a.png"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "unset-pointer"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "a.png"
+          ],
+          "thumb": "a.png"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_d",
+          "name": "empty-source"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [],
+          "thumb": null
+        },
+        "tags": []
+      }
+    ]
+  }
+}

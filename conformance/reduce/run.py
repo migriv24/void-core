@@ -64,7 +64,14 @@ def execute(case: dict) -> dict:
                              opaque=set(case.get("opaque") or ()),
                              strict_locality=strict)
         result = {"canonical": canonical(out)}
-        # confluence check (reference-side law): N randomized schedules, same form
+        # `pin_ids` opts a case into checking the actual agent NAMES, not just the
+        # id-independent shape (README.md §6). Off by default so the id-blind cases
+        # stay id-blind — an implementation free to name agents its own way still
+        # passes those, and only opts in where reproducible identity is the point.
+        if case.get("pin_ids"):
+            result["ids"] = sorted(out.agents)
+        # confluence check (reference-side law): N randomized schedules, same form —
+        # and, when ids are pinned, the same ids too, which is the stronger property
         for seed in range(case.get("schedules", 0)):
             rng = random.Random(seed)
             alt = reducer.reduce(net, max_steps=case.get("max_steps", 100_000),
@@ -73,6 +80,8 @@ def execute(case: dict) -> dict:
                                  pick=rng.choice)
             if canonical(alt) != result["canonical"]:
                 return {"error": f"NOT CONFLUENT (schedule seed {seed} diverged)"}
+            if case.get("pin_ids") and sorted(alt.agents) != result["ids"]:
+                return {"error": f"SCHEDULE-DEPENDENT IDS (schedule seed {seed} diverged)"}
         return result
     except NetError:
         return {"error": "adapter-ports"}

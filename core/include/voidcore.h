@@ -103,6 +103,43 @@ VC_API void vc_destroy(VC_Manager *m);
  * Stateless and thread-safe. */
 VC_API int vc_tag_match(const char *expr, const char *tags_json);
 
+/* ── The SPEC §6.1 command codec (stateless; no manager needed) ─────────────
+ *
+ * §6.1 is a rule every host must implement twice — once to encode a value into a
+ * command, once to decode a command it is about to run — and four independent
+ * codebases have now implemented it wrong, this one included. So it ships as
+ * code rather than only as prose. All three are stateless and thread-safe.
+ *
+ * THE LAW, which conformance case 13 and `quote_arg`'s property test pin:
+ *
+ *     vc_argv_split_json(vc_arg_quote(v)).argv == [v]
+ *
+ * for every NUL-free byte string v — newlines, quotes, backslashes, control
+ * characters and all. (NUL-free because this whole boundary is C strings; a
+ * value containing a NUL cannot reach vc_dispatch at all, so the codec does not
+ * pretend otherwise with a length parameter.) */
+
+/* Quote an arbitrary value as ONE dispatcher argument. Caller frees. */
+VC_API char *vc_arg_quote(const char *value);
+
+/* Tokenize one command line exactly as vc_dispatch will.
+ *   {"ok":true,"argv":["set","v","bio","two words"]}
+ *   {"ok":false,"error":"unterminated quote (§6.1 rule 5)","argv":null}
+ * Caller frees. */
+VC_API char *vc_argv_split_json(const char *line);
+
+/* Split a whole transcript into the statements it will run — the DECODER half,
+ * for a host that must review a proposed transcript before dispatching it.
+ * Boundaries are newline and `;` OUTSIDE quoted runs, so a newline inside a
+ * value is data, not a new command; `#` comments are dropped.
+ *   {"ok":true,"flat":true,"commands":[{"line":1,"text":"...","argv":[...]}]}
+ *   {"ok":false,"error":"unterminated quote ...","line":7}
+ * `flat` is false if any statement opens a block or begins with a SPEC §8
+ * control word — a flat transcript is one whose effect can be read off its
+ * statements without simulating it, which is what a submission gate wants to
+ * know. Caller frees. */
+VC_API char *vc_transcript_split_json(const char *src);
+
 /* Library version (static string, do not free). */
 VC_API const char *vc_version(void);
 

@@ -22,26 +22,83 @@ static void et_free(etok *t) {
   for (int i = 0; i < t->n; i++) free(t->t[i]);
   free(t->t);
 }
-static etok et_tokenize(const char *s) {
+/* Tokenize a condition. Two rules matter and both used to be wrong:
+ *
+ *  - A token that BEGINS with a quote is a quoted literal, read with the ONE
+ *    §6.1 automaton (dispatch/args.c) and stripped of its quotes. The old lexer
+ *    knew only `"` and had no \' escape, so a literal written the way the SPEC
+ *    tells hosts to write it (`'don\'t'`) compared as the seven characters
+ *    `'don\'t'` and never equalled `don't`. Conformance case 12 asserted exactly
+ *    that and passed only because a SECOND bug (the statement reader running past
+ *    the newline) made the comparison accidentally truthy.
+ *
+ *  - Bytes produced by an expansion (mask 1) are pure content: an apostrophe
+ *    inside an interpolated value can never open a quoted run, a space inside one
+ *    can never split a token, and an operator inside one is just text. Mask 2 is
+ *    the zero-width field mark, so an empty expansion still yields an explicit
+ *    empty token instead of vanishing and shifting every operator one place left.
+ *
+ * Note this is deliberately NOT the whole of §6.1: quoting here is
+ * begins-the-token, not strip-anywhere, so a JSON literal (`["a","b"]`) stays a
+ * bare word with its quotes intact — the idiom the suite compares `--json`
+ * captures against. The two grammars agree on quoted tokens, which is the part a
+ * host has to get right; they differ on bare words, which is stated in SPEC §8.
+ *
+ * `mask` may be NULL (then every byte is source syntax). */
+static etok et_tokenize(const char *s, const unsigned char *mask) {
   etok t = {0};
-  while (*s) {
-    while (*s == ' ' || *s == '\t') s++;
-    if (!*s) break;
-    if (*s == '(' || *s == ')') { char b[2] = {*s, 0}; et_push(&t, b, 1); s++; continue; }
-    if (*s == '!' && s[1] == '=') { et_push(&t, "!=", 2); s += 2; continue; }
-    if (*s == '=' && s[1] == '=') { et_push(&t, "==", 2); s += 2; continue; }
-    if (*s == '<' && s[1] == '=') { et_push(&t, "<=", 2); s += 2; continue; }
-    if (*s == '>' && s[1] == '=') { et_push(&t, ">=", 2); s += 2; continue; }
-    if (*s == '&' && s[1] == '&') { et_push(&t, "&&", 2); s += 2; continue; }
-    if (*s == '|' && s[1] == '|') { et_push(&t, "||", 2); s += 2; continue; }
-    if (*s == '<' || *s == '>' || *s == '!') { char b[2] = {*s, 0}; et_push(&t, b, 1); s++; continue; }
-    if (*s == '"') { const char *st = ++s; while (*s && *s != '"') s++; et_push(&t, st, (int)(s - st)); if (*s) s++; continue; }
-    const char *st = s;
-    while (*s && *s != ' ' && *s != '\t' && *s != '(' && *s != ')' && *s != '!' &&
-           *s != '=' && *s != '<' && *s != '>' && *s != '&' && *s != '|')
-      s++;
-    et_push(&t, st, (int)(s - st));
+  int i = 0;
+#define EM(k) ((unsigned char)(mask ? mask[k] : 0))
+  while (s[i]) {
+    while (!EM(i) && (s[i] == ' ' || s[i] == '\t')) i++;
+    if (!s[i]) break;
+    if (!EM(i)) {
+      const char *p = s + i;
+      if (*p == '(' || *p == ')') { char b[2] = {*p, 0}; et_push(&t, b, 1); i++; continue; }
+      if (*p == '!' && p[1] == '=') { et_push(&t, "!=", 2); i += 2; continue; }
+      if (*p == '=' && p[1] == '=') { et_push(&t, "==", 2); i += 2; continue; }
+      if (*p == '<' && p[1] == '=') { et_push(&t, "<=", 2); i += 2; continue; }
+      if (*p == '>' && p[1] == '=') { et_push(&t, ">=", 2); i += 2; continue; }
+      if (*p == '&' && p[1] == '&') { et_push(&t, "&&", 2); i += 2; continue; }
+      if (*p == '|' && p[1] == '|') { et_push(&t, "||", 2); i += 2; continue; }
+      if (*p == '<' || *p == '>' || *p == '!') { char b[2] = {*p, 0}; et_push(&t, b, 1); i++; continue; }
+    }
+    {
+      size_t bcap = 64, n = 0;
+      char *b = (char *)malloc(bcap);
+#define EPUSH(ch)                                                              \
+  do {                                                                         \
+    if (n + 1 >= bcap) { bcap *= 2; b = (char *)realloc(b, bcap); }            \
+    b[n++] = (char)(ch);                                                       \
+  } while (0)
+      if (!EM(i) && (s[i] == '\'' || s[i] == '"')) {
+        /* quoted literal — §6.1 rules until the run closes */
+        char q = 0;
+        int emit, used = vc_quote_step(s + i, &q, &emit); /* opens it */
+        i += used;
+        while (s[i] && q) {
+          if (EM(i)) { if (EM(i) == 1) EPUSH(s[i]); i++; continue; }
+          used = vc_quote_step(s + i, &q, &emit);
+          if (used == 0) break;
+          i += used;
+          if (emit >= 0) EPUSH(emit);
+        }
+      } else {
+        /* bare word — quotes inside are literal (JSON survives) */
+        while (s[i]) {
+          unsigned char mv = EM(i);
+          if (mv) { if (mv == 1) EPUSH(s[i]); i++; continue; }
+          if (s[i] == ' ' || s[i] == '\t' || strchr("()!=<>&|", s[i])) break;
+          EPUSH(s[i]);
+          i++;
+        }
+      }
+#undef EPUSH
+      et_push(&t, b, (int)n);
+      free(b);
+    }
   }
+#undef EM
   return t;
 }
 
@@ -126,9 +183,10 @@ static Val ev_or(etok *t, int *p) {
 }
 
 int eval_cond(VS *c, const char *text) {
-  char buf[2048];
-  interpolate(c, text, buf, sizeof buf);
-  etok t = et_tokenize(buf);
+  unsigned char *mask = NULL;
+  char *buf = vs_interp_alloc(c, text, &mask);
+  if (!buf) { free(mask); return 0; }
+  etok t = et_tokenize(buf, mask);
   int has_op = 0;
   for (int i = 0; i < t.n; i++) {
     const char *s = t.t[i];
@@ -142,12 +200,18 @@ int eval_cond(VS *c, const char *text) {
     int p = 0;
     Val v = ev_or(&t, &p);
     truth = truthy(v.s);
-  } else { /* bare command: truthy iff ok */
-    cJSON *r = vc_dispatch_json(c->m, buf);
+  } else { /* bare command: truthy iff ok — re-emitted canonically, so an
+             * interpolated value cannot become an extra argument or a flag */
+    int unterm = 0;
+    char *cl = vs_command_line(buf, mask, &unterm);
+    cJSON *r = vc_dispatch_json(c->m, cl ? cl : buf);
+    free(cl);
     truth = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(r, "ok"));
     cJSON_Delete(r);
   }
   et_free(&t);
+  free(buf);
+  free(mask);
   return truth;
 }
 

@@ -1,0 +1,63 @@
+{
+  "case": "01-identity",
+  "description": "Identity is the default: an empty rule list tempers every rune to itself, including runes with missing `content`/`tags` containers. A normalization layer that invents structure on an empty spec is not conforming — Temper only ever applies the rules it was given.",
+  "spec": [],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "b.png",
+            "b.png"
+          ],
+          "thumb": "zzz.png"
+        },
+        "tags": [
+          "x",
+          "x"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "beta"
+        },
+        "glyph": "note"
+      }
+    ]
+  },
+  "expect": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "b.png",
+            "b.png"
+          ],
+          "thumb": "zzz.png"
+        },
+        "tags": [
+          "x",
+          "x"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "beta"
+        },
+        "glyph": "note"
+      }
+    ]
+  }
+}

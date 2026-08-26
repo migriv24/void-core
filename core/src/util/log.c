@@ -5,6 +5,7 @@
 #include "vc_internal.h"
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 
 #define VC_LOG_MAX 2000
@@ -27,10 +28,18 @@ cJSON *vc_log_buffer(VC_Manager *m) {
 
 void vc_log(VC_Manager *m, const char *level, const char *op, const char *fmt, ...) {
   if (!m) return;
-  char msg[1024];
+  /* No length cap: the mutation spine (SPEC §9) logs the FULL command, and a
+   * command carrying a long value used to be cut at 1024 bytes — mid-UTF-8
+   * sequence for any non-ASCII text, which put invalid bytes into the log
+   * record and therefore into the host's JSON. */
   va_list ap;
   va_start(ap, fmt);
-  vsnprintf(msg, sizeof msg, fmt, ap);
+  va_list cp;
+  va_copy(cp, ap);
+  int need = vsnprintf(NULL, 0, fmt, cp);
+  va_end(cp);
+  char *msg = (need >= 0) ? (char *)malloc((size_t)need + 1) : NULL;
+  if (msg) vsnprintf(msg, (size_t)need + 1, fmt, ap);
   va_end(ap);
 
   char ts[32];
@@ -40,7 +49,7 @@ void vc_log(VC_Manager *m, const char *level, const char *op, const char *fmt, .
   cJSON_AddStringToObject(rec, "ts", ts);
   cJSON_AddStringToObject(rec, "level", level ? level : "INFO");
   cJSON_AddStringToObject(rec, "op", op ? op : "");
-  cJSON_AddStringToObject(rec, "msg", msg);
+  cJSON_AddStringToObject(rec, "msg", msg ? msg : "");
   /* attribution (SPEC §9): stamp the session actor when one is configured, so
    * agents and humans sharing one dispatcher seam stay distinguishable */
   const char *who = m->state ? vc_actor(m->state) : NULL;
@@ -50,5 +59,7 @@ void vc_log(VC_Manager *m, const char *level, const char *op, const char *fmt, .
   cJSON_AddItemToArray(buf, rec);
   while (cJSON_GetArraySize(buf) > VC_LOG_MAX) cJSON_DeleteItemFromArray(buf, 0);
 
-  if (m->log_sink) m->log_sink(level ? level : "INFO", op ? op : "", msg, m->log_user);
+  if (m->log_sink)
+    m->log_sink(level ? level : "INFO", op ? op : "", msg ? msg : "", m->log_user);
+  free(msg);
 }

@@ -21,7 +21,8 @@ dictionary.
 | `title` | `spirit.name` or a facet | |
 | `description` / `resource` / `timestamp` | facets `what` / `where` / `when` | `resource` + `when` are the freshness hooks |
 | `tags` | [tags](/concepts/tag-system.md) | verbatim; same field, same grammar |
-| body (markdown) | `content` (opaque to the core) | |
+| body (markdown) | `content.body` (opaque to the core) | |
+| notes (markdown after `<!-- okf:notes -->`) | `content.notes` (opaque to the core) | the hand-authored half of a *generated* concept; a re-produce overwrites `body` and cannot touch `notes` |
 | markdown link | a [link](/concepts/links.md) (today: `layout.edges`) | untyped directed edge; may dangle |
 | Knowledge Bundle | [mantle](/concepts/mantle.md) over a [domain](/concepts/domain.md) | the source dir/repo is the domain |
 | `index.md` | `describe <mantle>` (generated) | |
@@ -35,3 +36,13 @@ dictionary.
 | `status:` | `current` / `planned` / `deprecated` | shipped reality vs future plan |
 | `audience:` | `dev` / `library` | which projected bundle a concept belongs to |
 | `confidence:` | `verified` / `asserted` / `exploratory` / `stale` | `verified`/`asserted`/`exploratory` are authored; `stale` is stamped by `validate` (resource drift) |
+
+On a [`Source`](/sources/index.md) page the same three authored values read as claims about
+an **attribution** — and the reading is sharp enough to be worth stating, because it turns
+the axis into a work queue:
+
+| value | on a source page |
+|---|---|
+| `exploratory` | unsure the attribution is right at all |
+| `asserted` | written from a model's recall, **not** checked against the artifact |
+| `verified` | someone opened the work and confirmed author, year and claim |

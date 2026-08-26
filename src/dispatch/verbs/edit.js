@@ -102,6 +102,8 @@ module.exports = (deps) => {
       }
       throw new Error('usage: rune new|rm|rename|dup|move ...');
     },
+    // SPEC §3.4/§7.2 — the mantle lifecycle family (the mantle-level analogues
+    // of rune new|rm|rename). All three mutate the undoable slice.
     mantle(c, pos) {
       if (pos[0] === 'new') {
         const name = pos[1];
@@ -112,6 +114,32 @@ module.exports = (deps) => {
         state.mantles.push(mantle);
         state.active.mantle = name;
         return res([`created mantle ${name} (active)`], mantle);
+      }
+      if (pos[0] === 'rm') {
+        // Removing the ACTIVE mantle deactivates (the `use` / `cd /` cold-start
+        // semantics) rather than refusing; removing the last one is allowed.
+        const name = pos[1];
+        if (!name) throw new Error('usage: mantle rm <name>');
+        const i = state.mantles.findIndex(m => m.name === name);
+        if (i < 0) throw new Error(`no mantle "${name}"`);
+        ctx.pushUndo(`mantle rm ${name}`);
+        state.mantles.splice(i, 1);
+        if (state.active.mantle === name) {
+          state.active.mantle = null;
+          return res([`removed mantle ${name} (no active mantle)`]);
+        }
+        return res([`removed mantle ${name}`]);
+      }
+      if (pos[0] === 'rename') {
+        const [, oldName, newName] = pos;
+        if (!oldName || !newName) throw new Error('usage: mantle rename <old> <new>');
+        const m = state.mantles.find(x => x.name === oldName);
+        if (!m) throw new Error(`no mantle "${oldName}"`);
+        if (state.mantles.find(x => x.name === newName)) throw new Error(`mantle "${newName}" exists`);
+        ctx.pushUndo(`mantle rename ${oldName}`);
+        m.name = newName;
+        if (state.active.mantle === oldName) state.active.mantle = newName;
+        return res([`renamed mantle ${oldName} -> ${newName}`]);
       }
       return deps.handlers.mantles(c);
     },

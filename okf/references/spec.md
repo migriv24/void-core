@@ -4,7 +4,7 @@ title: SPEC.md — the normative contract
 description: The indexed entry point to SPEC.md, Void Core's normative language-agnostic contract, mapping each section to the concept that describes it.
 resource: SPEC.md
 tags: [status:current, audience:dev, audience:library, confidence:verified, reference]
-timestamp: 2026-07-03T00:00:00Z
+timestamp: 2026-08-25T00:00:00Z
 ---
 
 **`SPEC.md`** (at the repo root) is Void Core's **normative, language-agnostic
@@ -26,9 +26,9 @@ seam (optional per binding) · **[impl unless marked]** = mandatory verbs except
 | §3 Data model | spirit, rune, glyph, mantle, domain, binding, links | [rune](/concepts/rune.md) · [glyph](/concepts/glyph.md) · [mantle](/concepts/mantle.md) · [domain](/concepts/domain.md) · [links](/concepts/links.md) |
 | §4 Identity & reference rules | frozen id + editable name; ref resolution | [rune](/concepts/rune.md) |
 | §5 Tag system `[impl]` | tag membership + the filter grammar | [tag system](/concepts/tag-system.md) |
-| §6 Dispatcher contract `[impl]` | the one command entry point + result shape | [dispatcher](/concepts/dispatcher.md) |
+| §6 Dispatcher contract `[impl]` | the one command entry point + result shape; §6.1 = **argument quoting** — the tokenizer's five rules, the law `split(quote(v)) == [v]`, and the exported codec | [dispatcher](/concepts/dispatcher.md) |
 | §7 Verb catalog | verb semantics incl. the transformation verbs (seam); §7.1 = the POSIX alias surface (argument-aware desugarings, root-`ls`, `cd /`) | [dispatcher](/concepts/dispatcher.md) · [reduce](/concepts/reduce.md) / [temper](/concepts/temper.md) / [scry](/concepts/scry.md) |
-| §8 Voidscript `[impl]` | the scripting language over the dispatcher | [voidscript](/concepts/voidscript.md) |
+| §8 Voidscript `[impl]` | the scripting language over the dispatcher; §8.1 = **quoting and expansion** — the rules that keep a value in a transcript from becoming syntax | [voidscript](/concepts/voidscript.md) |
 | §9 Adapter seam & logging `[impl]` | the I/O boundary + log spine | [holiday](/concepts/holiday.md) · [logging & debug](/concepts/logging-debug.md) |
 | §10 Extensions for Hormiga `[ext]` | host-specific extensions (not in reference impl) | — |
 | §11 Conformance | the JS oracle as conformance reference | [c core](/components/c-core.md) |

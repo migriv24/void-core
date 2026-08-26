@@ -1,0 +1,26 @@
+{
+  "case": "08-missing-arg",
+  "description": "A known rule missing a required argument MUST be rejected, for the same reason as an unknown rule: a `member_or_default` with no `source` cannot be given a defensible default behavior, and guessing one produces a pass that silently enforces the wrong invariant. Required arguments per rule are listed in README.md §2.",
+  "spec": [
+    {
+      "rule": "member_or_default",
+      "target": "thumb"
+    }
+  ],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "note",
+        "content": {},
+        "tags": []
+      }
+    ]
+  },
+  "expect": {
+    "error": "missing-arg"
+  }
+}

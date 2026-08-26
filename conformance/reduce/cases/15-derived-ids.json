@@ -1,0 +1,506 @@
+{
+  "case": "15-derived-ids",
+  "description": "Rule-created agents are named from the REDEX (rule + the two parent ids + an ordinal within the rewrite), not from a running counter, so the ids a reduction produces are a property of the net rather than of the schedule. This net has two independent redexes, so different schedules genuinely fire in different orders; `pin_ids` + `schedules` therefore assert the strong property directly: 16 randomized orders must agree on the literal agent names, not merely on the id-independent canonical form. Peers merging by reduction depend on this — confluence alone gives the same normal form only up to renaming, which is the same shape but not the same bytes. An implementation that mints ids sequentially, randomly, or from a clock passes every other case in this suite and fails this one.",
+  "spec": {
+    "signatures": {
+      "dup": 2,
+      "con": 2,
+      "leaf": 0
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "dup",
+          "con"
+        ],
+        "rule": "commute"
+      },
+      {
+        "glyphs": [
+          "leaf",
+          "leaf"
+        ],
+        "rule": "annihilate"
+      }
+    ]
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "name": "d"
+        },
+        "glyph": "dup",
+        "content": {
+          "k": "dv"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "c"
+        },
+        "glyph": "con",
+        "content": {
+          "k": "cv"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "L1"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "L2"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "L3"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "d2"
+        },
+        "glyph": "dup",
+        "content": {
+          "k": "dv2"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "c2"
+        },
+        "glyph": "con",
+        "content": {
+          "k": "cv2"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "M1"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "M2"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "M3"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "name": "M4"
+        },
+        "glyph": "leaf",
+        "content": {},
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "d",
+          "to": "c",
+          "relation": "0:0"
+        },
+        {
+          "from": "d",
+          "to": "L1",
+          "relation": "1:0"
+        },
+        {
+          "from": "d",
+          "to": "L2",
+          "relation": "2:0"
+        },
+        {
+          "from": "c",
+          "to": "L3",
+          "relation": "1:0"
+        },
+        {
+          "from": "c",
+          "to": "d2",
+          "relation": "2:1"
+        },
+        {
+          "from": "d2",
+          "to": "c2",
+          "relation": "0:0"
+        },
+        {
+          "from": "d2",
+          "to": "M1",
+          "relation": "2:0"
+        },
+        {
+          "from": "c2",
+          "to": "M2",
+          "relation": "1:0"
+        },
+        {
+          "from": "c2",
+          "to": "M3",
+          "relation": "2:0"
+        },
+        {
+          "from": "M4",
+          "to": "M4",
+          "relation": "0:0"
+        }
+      ]
+    }
+  },
+  "schedules": 16,
+  "pin_ids": true,
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "con",
+          {
+            "k": "cv"
+          },
+          []
+        ],
+        [
+          "con",
+          {
+            "k": "cv"
+          },
+          []
+        ],
+        [
+          "con",
+          {
+            "k": "cv2"
+          },
+          []
+        ],
+        [
+          "con",
+          {
+            "k": "cv2"
+          },
+          []
+        ],
+        [
+          "con",
+          {
+            "k": "cv2"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "dv"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "dv"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "dv"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "dv2"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "dv2"
+          },
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ],
+        [
+          "leaf",
+          {},
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "con",
+            0
+          ],
+          [
+            "con",
+            2
+          ]
+        ],
+        [
+          [
+            "con",
+            0
+          ],
+          [
+            "con",
+            2
+          ]
+        ],
+        [
+          [
+            "con",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "con",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "con",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            2
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            2
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            2
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "dup",
+            2
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "dup",
+            2
+          ]
+        ],
+        [
+          [
+            "dup",
+            0
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "dup",
+            0
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "dup",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "dup",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "dup",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ],
+        [
+          [
+            "leaf",
+            0
+          ],
+          [
+            "leaf",
+            0
+          ]
+        ]
+      ],
+      "free": []
+    },
+    "ids": [
+      "L1",
+      "L2",
+      "L3",
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "_r0c03475c920d",
+      "_r3fb882cc7532",
+      "_r5aa96c27457a",
+      "_r82d5e0bd78dd",
+      "_r928ea920b9e7",
+      "_rad59f0d9dca1",
+      "_rc6a66605a546",
+      "_rdf2c2504b5ff",
+      "_rdfe3ca4f30ed",
+      "_re5806cfc36e3"
+    ]
+  }
+}

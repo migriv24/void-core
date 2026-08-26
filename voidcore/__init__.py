@@ -44,10 +44,17 @@ for _p in [os.path.join(ROOT, "holidays", _h) for _h in ("localjson", "graph", "
         sys.path.append(_p)
 
 # ── eager exports (no third-party deps) ──────────────────────────────────────────
-VoidCore = _load("_voidcore_binding", "bindings", "python", "voidcore.py").VoidCore
+_binding = _load("_voidcore_binding", "bindings", "python", "voidcore.py")
+VoidCore = _binding.VoidCore
+# pure string helper (SPEC 6.1) - no engine, no DLL; importable on a bare checkout
+quote_arg = _binding.quote_arg
+split_args = _binding.split_args
+split_transcript = _binding.split_transcript
+UnterminatedQuote = _binding.UnterminatedQuote
+CONTROL_WORDS = _binding.CONTROL_WORDS
 from localjson_holiday import LocalJsonHoliday, RecordSchema  # noqa: E402
 from roundtrip import check_roundtrip, RoundTripReport  # noqa: E402  (scry round-trip law)
-from lens import Lens  # noqa: E402  (scry: bidirectional projection + round-trip law)
+from lens import Lens, pipeline  # noqa: E402  (scry: bidirectional projection + law)
 from projection import (  # noqa: E402  (scry projection layer)
     scry, materialize, provenance, tag_match, dedupe_by, Context, Selector,
 )
@@ -84,8 +91,9 @@ def holiday(name: str):
     raise ValueError(f"unknown holiday: {name}")
 
 
-__all__ = ["VoidCore", "LocalJsonHoliday", "RecordSchema", "holiday",
-           "check_roundtrip", "RoundTripReport", "Lens",
+__all__ = ["VoidCore", "quote_arg", "split_args", "split_transcript",
+           "UnterminatedQuote", "CONTROL_WORDS", "LocalJsonHoliday", "RecordSchema", "holiday",
+           "check_roundtrip", "RoundTripReport", "Lens", "pipeline",
            "scry", "materialize", "provenance", "tag_match", "dedupe_by",
            "Context", "Selector",
            "Temper", "dedupe", "member_or_default", "default_content",
@@ -95,4 +103,18 @@ __all__ = ["VoidCore", "LocalJsonHoliday", "RecordSchema", "holiday",
            "Agent", "Net", "NetError", "Port", "to_net", "from_net",
            "Dispatcher", "temper_from_spec", "selector_from_spec", "reducer_from_spec",
            "temper_rule_names", "reduce_rule_names", "ROOT"]
-__version__ = "0.1.0"
+# Derived, not written: this is the FIFTH place a version lives, and it had drifted
+# five releases behind the other four (0.1.0 vs 0.2.6) while being the one a host
+# actually sees. Reading pyproject.toml is the same move as VC_VERSION_STR living
+# once in vc_internal.h -- it cannot fork. `version_test.py` checks all five agree.
+def _repo_version(default: str = "0.0.0") -> str:
+    try:
+        import re
+        with open(os.path.join(ROOT, "pyproject.toml"), encoding="utf-8") as fh:
+            m = re.search(r'^version\s*=\s*"([^"]+)"', fh.read(), re.M)
+        return m.group(1) if m else default
+    except OSError:
+        return default          # installed without the source tree beside it
+
+
+__version__ = _repo_version()

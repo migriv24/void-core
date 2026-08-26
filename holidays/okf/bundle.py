@@ -19,6 +19,15 @@ from typing import Callable, Optional
 RESERVED = {"index.md", "log.md"}
 _LINK_RE = re.compile(r"\]\((/[^)\s]+\.md|\.{0,2}/?[^)\s]+\.md)\)")
 
+# A produced concept may carry two halves: the machine-written `body` and hand-authored
+# `notes` after this marker. Separate FIELDS of the same rune, so re-producing a
+# generated bundle overwrites the body and structurally cannot touch the notes — no
+# text merge, ever. Absent marker = the whole thing is body (permissive consumption).
+NOTES_MARKER = "<!-- okf:notes -->"
+# only on a line of its own — prose that *mentions* the marker (this bundle documents it)
+# must not split itself
+_NOTES_RE = re.compile(r"^[ \t]*" + re.escape(NOTES_MARKER) + r"[ \t]*$", re.M)
+
 
 def parse_frontmatter(text: str) -> tuple[dict, str]:
     """Minimal YAML-frontmatter parser for the subset OKF uses (scalars + an inline
@@ -44,6 +53,15 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
     return fields, body
 
 
+def split_notes(text: str) -> tuple[str, str]:
+    """Split a concept's markdown into (body, notes) at `NOTES_MARKER`. Trailing/leading
+    blank lines around the marker are normalization, not content."""
+    m = _NOTES_RE.search(text)
+    if not m:
+        return text, ""
+    return text[:m.start()].rstrip("\n"), text[m.end():].lstrip("\n")
+
+
 @dataclass
 class Concept:
     id: str                       # path minus .md, bundle-relative, forward slashes
@@ -55,8 +73,14 @@ class Concept:
     resource: str = ""
     timestamp: str = ""
     body: str = ""
+    notes: str = ""               # hand-authored half, after NOTES_MARKER (usually empty)
     links: list[str] = field(default_factory=list)  # concept IDs this one links to
     path: str = ""                # absolute file path
+
+    @property
+    def text(self) -> str:
+        """Both halves as they appear in the file — what a reader sees."""
+        return f"{self.body}\n\n{self.notes}" if self.notes else self.body
 
     @property
     def status(self) -> str:
@@ -110,16 +134,17 @@ def load_bundle(bundle_dir: str) -> Bundle:
         fm, body = parse_frontmatter(text)
         cid = _cid(f, bundle_dir)
         tags = fm.get("tags", []) if isinstance(fm.get("tags"), list) else []
-        links = _links(f, body, bundle_dir, ids, cid)
+        links = _links(f, body, bundle_dir, ids, cid)  # both halves link into the graph
         for tgt in links:
             edges.add((cid, tgt))
+        body, notes = split_notes(body)
         concepts[cid] = Concept(
             id=cid, title=fm.get("title", cid.split("/")[-1]),
             type=fm.get("type", "Concept"),
             section=cid.split("/")[0] if "/" in cid else "root",
             tags=tags, description=fm.get("description", ""),
             resource=fm.get("resource", ""), timestamp=fm.get("timestamp", ""),
-            body=body, links=links, path=f,
+            body=body, notes=notes, links=links, path=f,
         )
     return Bundle(dir=bundle_dir, concepts=concepts, edges=sorted(edges))
 

@@ -137,7 +137,7 @@ def validate(bundle: Bundle) -> Report:
                           f"(glossary: {', '.join(sorted(_CONFIDENCE_VALUES))})"))
 
         # broken intra-bundle links (tolerated by OKF — informational)
-        for m in _BODY_LINK_RE.finditer(c.body):
+        for m in _BODY_LINK_RE.finditer(c.text):
             tgt = m.group(1).lstrip("/")
             base = os.path.basename(tgt)
             tid = tgt[:-3]

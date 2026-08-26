@@ -61,8 +61,30 @@ Rules arrive as data, in the `config.transform.reduce` form of the state documen
   partner; α-copy j's principal takes β's external aux-j+1 partner; α-copy j's
   aux-k+1 is wired to β-copy k's aux-j+1 (the m×n grid). Copies duplicate the
   original's `content` (shallow) and start with **empty tags**.
-- Fresh agent ids are implementation-defined — conformance compares canonical
-  forms (§4), never ids.
+- **Fresh agent ids are derived from the redex**, and this is normative (it was
+  implementation-defined before 2026-07-27). An agent created by a rule MUST be named
+  from *which rule fired on which two agents*, plus an ordinal within that rewrite —
+  never from a running counter, a clock, or an RNG:
+
+  ```
+  id = H( sorted(glyph_a, glyph_b), sorted(parent_id_a, parent_id_b), ordinal )
+  ```
+
+  Both components are unordered so the id does not depend on which side the executor
+  called A. The reference uses BLAKE2b-48 rendered as `_r<12 hex>`; the *hash* is not
+  normative (most cases compare canonical forms, which are id-blind) but the
+  **property** is: two implementations, or two schedules, must agree on which agents
+  are the same agent. A rule MUST therefore call the fresh-id minter a deterministic
+  number of times in a deterministic order for given `(a, b)`.
+
+  **Why it is normative.** Confluence (§3) promises the same normal form only *up to
+  renaming*. A peer that merges divergent state by reducing needs the same **bytes**:
+  two peers picking different, equally valid, redex orders would otherwise produce
+  structurally identical nets whose agents have different names — and a name becomes a
+  rune's `spirit.name`, which `layout.edges` references and tag expressions match, so
+  the divergence is real rather than cosmetic. (Void Palabra's ask, 2026-07-27.)
+  Case 15 pins it; an implementation that mints ids sequentially passes every other
+  case in this suite and fails that one.
 
 ## 3. Reduction
 
@@ -133,6 +155,7 @@ Rules arrive as data, in the `config.transform.reduce` form of the state documen
  "max_steps": 100000,                  // optional
  "schedules": 8,                       // optional: verify N randomized schedules
  "strict_locality": true,              // optional: demand the restricted subset (§3)
+ "pin_ids": true,                      // optional: also compare the literal agent ids (§6)
  "expect": {"canonical": {...}}        // or {"error": "<kind>"}
 }
 ```
@@ -144,3 +167,19 @@ Error kinds are abstract (each implementation maps them to its own error type):
 New cases: author `spec`/`input`, run `python run.py --regen`, **eyeball the
 generated `expect` against the semantics above**, commit. The reference is the
 oracle, but a golden file is only as good as its review.
+
+## 6. `pin_ids` — checking identity, not just shape
+
+Most cases are id-blind by design: the canonical form (§4) identifies agents by
+glyph+content+tags, so an implementation is free to name agents however it likes and
+still pass. A case with `"pin_ids": true` opts into the stronger check — the runner adds
+`"ids"` (the sorted agent names) to the expectation, and, when combined with
+`"schedules": N`, additionally requires that all N randomized schedules produce the
+**same literal ids**, not merely the same canonical form.
+
+Use it where reproducible identity is the point (case 15) and leave it off elsewhere, so
+the rest of the suite keeps testing semantics rather than a naming scheme. The pinned
+`_r<hex>` strings in case 15 are the *reference's* rendering; an implementation with a
+different hash will differ there and should re-`--regen` that one case against itself
+while still checking the cross-schedule property, which is the part that must hold
+everywhere.

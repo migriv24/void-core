@@ -1,0 +1,27 @@
+{
+  "case": "08-bad-into",
+  "description": "`materialize` accepts exactly two destinations, `content` and `tags`. Anything else MUST be rejected rather than defaulted, because the two write to different halves of a rune and guessing silently puts the baked data where the caller will not look for it.",
+  "op": "materialize",
+  "into": "facets",
+  "resolved": {
+    "alpha": {
+      "price": "12.00"
+    }
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "item",
+        "content": {},
+        "tags": []
+      }
+    ]
+  },
+  "expect": {
+    "error": "bad-into"
+  }
+}

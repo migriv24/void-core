@@ -18,8 +18,10 @@ static int is_mutating(const vc_argv *a) {
     return !strcmp(s, "new") || !strcmp(s, "rm") || !strcmp(s, "rename") ||
            !strcmp(s, "dup") || !strcmp(s, "move");
   }
-  if (!strcmp(v, "mantle") && a->count >= 2 && !strcmp(a->items[1], "new"))
-    return 1;
+  if (!strcmp(v, "mantle") && a->count >= 2) {
+    const char *s = a->items[1];
+    return !strcmp(s, "new") || !strcmp(s, "rm") || !strcmp(s, "rename");
+  }
   if (!strcmp(v, "revert") || !strcmp(v, "batch")) return 1;
   if (!strcmp(v, "link") || !strcmp(v, "unlink")) return 1;
   if (!strcmp(v, "relate") || !strcmp(v, "unrelate")) return 1;
@@ -50,6 +52,19 @@ cJSON *vc_dispatch_json(VC_Manager *m, const char *command) {
   if (a.count == 0) {
     vc_argv_free(&a);
     return res_fail("empty command");
+  }
+  /* SPEC §6.1 rule 5: refuse a command whose last argument never closed its
+   * quote. The argument is necessarily wrong (it has swallowed everything after
+   * it), and failing loudly here is the difference between a host noticing its
+   * quoting bug and storing truncated content with ok:true. */
+  if (a.unterminated) {
+    const char *v0 = a.items[0];
+    cJSON *bad = res_fail("unterminated quote in argument %d of '%s' "
+                          "(SPEC §6.1: quote the value with vc_arg_quote)",
+                          a.count - 1, v0);
+    vc_log(m, "ERROR", v0, "unterminated quote: %s", command);
+    vc_argv_free(&a);
+    return bad;
   }
   /* POSIX aliases desugar to canonical argv first (SPEC §7), so is_mutating and
    * the undo label see the same command every downstream consumer does. */

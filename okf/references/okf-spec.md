@@ -26,7 +26,42 @@ speaks. Void Core's own rationale for adopting it: [OKF as a core feature](/desi
   fields, and **broken links** (not-yet-written knowledge). Only stale/dead
   `resource:`→code links are a freshness signal for us.
 
+# Source provenance — a local convention
+
+OKF says nothing about citing external work, and a bundle written by an agent needs a
+rule, because *a surname, a year and a theorem name are exactly what comes out fluent and
+can be wrong*. Once written, a bad attribution is invisible: it reads correctly, it is
+never re-derived, and nothing checks it. (Convention adopted from Void Maiz, 2026-08-07.)
+
+Three parts, none of which needs an engine change:
+
+1. **One concept per external work**, `type: Source`, under `sources/`. It records what
+   the work is, what *we* use it for, why it is credible, and **what a verification pass
+   should check** — the last section being the one that makes the page actionable rather
+   than decorative.
+2. **Cite with an ordinary body link, never a frontmatter key.** A `cites:` key would be
+   *accepted* (unknown keys are tolerated) and would be **invisible**, because the graph
+   is built from body links. Citing in the body buys two things:
+   `okf get sources/<name>` lists every citing page under `linked from` — and that list is
+   the **blast radius**, naming exactly which pages inherit an error — while `okf analyze`
+   scores an over-leaned-on source as high-centrality with no new machinery. *A bibliography
+   tells you what was cited; a graph tells you what breaks.*
+3. **`confidence:` already means the right thing** — no new vocabulary:
+   `exploratory` = unsure the attribution is right at all; `asserted` = written from
+   recall, **not** checked against the artifact; `verified` = someone opened it and
+   confirmed author, year and claim. So `okf query "confidence:asserted source"` *is* the
+   verification queue.
+
+`Source` is kept distinct from `Reference` deliberately: a Reference is material *we*
+wrote to be referred to (this page, the [glossary](/references/voidcore-glossary.md)), a
+Source is an external work we are **trusting**. Only the second kind can be wrong in a way
+we would not notice. Note that `Source` is also *not* in `validate`'s doc-type exemption,
+so a source with no `resource:` is flagged — a citation that cites nothing is exactly the
+thing worth catching.
+
 # Citations
 
-[1] [How the Open Knowledge Format can improve data sharing](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing/)
-[2] [GoogleCloudPlatform/knowledge-catalog](https://github.com/GoogleCloudPlatform/knowledge-catalog) — reference impl (`okf/SPEC.md`, enrichment agent, sample bundles each with a self-contained `viz.html`)
+See [sources/](/sources/index.md) for how external work is cited here. This page's own:
+
+- [Google Cloud — Open Knowledge Format](/sources/google-open-knowledge-format.md), covering
+  both the announcement and the `knowledge-catalog` reference implementation.

@@ -1,0 +1,100 @@
+{
+  "case": "04-tag-rules",
+  "description": "The three tag rules together. `default_tag` adds `namespace:value` only when NO tag on that axis is present (it is a default, not an override). `single_tag` collapses a contradicted single-valued axis to its FIRST value, dropping the rest. `normalize_tags` de-duplicates preserving order. Note the interaction pinned here: default_tag runs first and sees `status:draft` on `contradicted`, so it adds nothing, and single_tag then keeps `draft` — a port that reorders these produces different tags.",
+  "spec": [
+    {
+      "rule": "default_tag",
+      "namespace": "status",
+      "value": "complete"
+    },
+    {
+      "rule": "single_tag",
+      "namespace": "status"
+    },
+    {
+      "rule": "normalize_tags"
+    }
+  ],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "no-axis"
+        },
+        "glyph": "note",
+        "content": {},
+        "tags": [
+          "kind:photo"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "contradicted"
+        },
+        "glyph": "note",
+        "content": {},
+        "tags": [
+          "status:draft",
+          "kind:photo",
+          "status:complete",
+          "status:archived"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "repeated"
+        },
+        "glyph": "note",
+        "content": {},
+        "tags": [
+          "kind:photo",
+          "status:live",
+          "kind:photo"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "no-axis"
+        },
+        "glyph": "note",
+        "content": {},
+        "tags": [
+          "kind:photo",
+          "status:complete"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "contradicted"
+        },
+        "glyph": "note",
+        "content": {},
+        "tags": [
+          "status:draft",
+          "kind:photo"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "repeated"
+        },
+        "glyph": "note",
+        "content": {},
+        "tags": [
+          "kind:photo",
+          "status:live"
+        ]
+      }
+    ]
+  }
+}

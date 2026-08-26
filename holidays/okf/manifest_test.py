@@ -6,6 +6,7 @@ manifest_test.py — the app-manifest reader.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import tempfile
 
@@ -14,13 +15,21 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from manifest import read_manifest
 
 
+def _pyproject_version(okf_dir: str) -> str:
+    text = open(os.path.join(okf_dir, "..", "pyproject.toml"), encoding="utf-8").read()
+    return re.search(r'^version\s*=\s*"([^"]+)"', text, re.M).group(1)
+
+
 def main() -> int:
     # ── reads Void Core's own app.md (identity + representation) ───────────────────
     here = os.path.dirname(os.path.abspath(__file__))
     okf_dir = os.path.join(here, "..", "..", "okf")
     m = read_manifest(okf_dir)
     assert m.name == "Void Core" and m.id == "voidcore", m
-    assert m.version == "0.2.1" and m.status == "current"
+    # pinned against pyproject.toml rather than a literal: a hardcoded version here is a
+    # drift source (it broke on every bump); comparing the two makes it a drift *detector*
+    assert m.version == _pyproject_version(okf_dir), (m.version, _pyproject_version(okf_dir))
+    assert m.status == "current"
     assert m.authors == ["migriv24"]
     assert m.icon == "rune" and m.theme == "void"
     assert m.palette.get("primary") == "#7c3aed" and m.palette.get("ink") == "#e8e8f0"

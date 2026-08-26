@@ -4,7 +4,7 @@ title: Voidscript
 description: A small terminal-complete language over the dispatcher; every non-control line is a dispatcher command.
 resource: core/src/scripts/voidscript.c
 tags: [status:current, audience:library, audience:dev, confidence:asserted]
-timestamp: 2026-07-01T00:00:00Z
+timestamp: 2026-08-25T00:00:00Z
 ---
 
 **Voidscript** is a scripting language whose every non-control statement is a
@@ -17,6 +17,33 @@ agents) can codify complex edits.
 `let` + `$var`/`${var}`/`$1..`/`$@`/`$?`, `$(cmd)` capture, `if/elif/else`, `while`,
 `repeat`, `foreach v in (cmd)`, `break`/`continue`, `return`, `halt`, `assert`,
 operators. Runnable via `script`.
+
+# A value is data, never syntax
+
+A script is a **transcript**, and a transcript is how someone else's text reaches
+the model: a submission from a stranger, a dataset harvested from a PDF, an agent's
+proposed run. So the interaction between [§6.1
+quoting](/concepts/dispatcher.md) and Voidscript's own syntax is normative (SPEC
+§8.1), and it comes down to three rules:
+
+- **Statement boundaries are honored only outside quoted runs.** A newline, `;`,
+  `{` or `}` inside a quoted argument is content. The statement reader uses the
+  *same* quote scanner as the argv tokenizer — one automaton, no second opinion.
+- **Single quotes suppress expansion.** `$var` and `$(cmd)` are literal inside a
+  single-quoted run, exactly as `\n` and `\cY` are. A transcript built by correctly
+  quoting a stranger's text must not run what that text happens to contain.
+- **An expansion is exactly one argument** — never re-scanned for quotes,
+  separators or flags, and an empty one is an explicit empty argument rather than a
+  disappearance.
+
+None of this held before 0.2.7, and the reason is worth keeping: the statement
+reader, the condition lexer and the interpolator each carried their **own** quote
+tracking, and none implemented §6.1's `\'` escape. A value spelled exactly the way
+the SPEC tells hosts to spell it closed its quoted run in the reader but not in the
+tokenizer, and everything after the next newline ran as commands — `ok: true`,
+canary breached. Conformance case `13-transcript-safety.vs` pins it, and the fix
+was structural: delete the other scanners. The **number** of tokenizers was the
+bug; the rules of any one of them were a symptom.
 
 # Examples
 

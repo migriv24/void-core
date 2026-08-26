@@ -4,7 +4,7 @@ title: Logging & debug
 description: The logging spine — leveled, op-tagged, buffered log records the host sinks anywhere — plus the debug/inspection surface that grows from it toward Voidscript-driven testing.
 resource: core/src/util/log.c
 tags: [status:current, audience:library, audience:dev, confidence:asserted]
-timestamp: 2026-07-01T00:00:00Z
+timestamp: 2026-08-25T00:00:00Z
 ---
 
 Void Core keeps a **logging spine** as a first-class part of the engine, not an
@@ -21,6 +21,12 @@ agent, and it is the substrate that debugging and **testing** build on.
   `vc_log_buffer(m)` exposes the buffer as data; **`vc_set_log_sink(m, fn, user)`** lets
   the host receive every line live (file, stderr, a UI pane) — a [holiday](/concepts/holiday.md)
   boundary. A `log` [dispatcher](/concepts/dispatcher.md) verb surfaces the buffer.
+- **No length cap on a record.** `vc_log` and the result-line builders format into a
+  heap buffer sized to the message. They used to be 1024-byte stack arrays, which cut
+  a long value *mid-UTF-8 sequence* — so a command that had succeeded came back with
+  invalid bytes in its `lines`, and the host's JSON parse threw. About 500 characters
+  of any accented script was enough. A fixed buffer on a string path turns *long*
+  content into *invalid* content, which fails in the parser rather than in the data.
 - **JS oracle** (`src/log/logger.js`): the same shape — timestamped/leveled lines,
   a ring buffer, `tail(n, level)`, level filtering, and an event stream for live tailing.
 

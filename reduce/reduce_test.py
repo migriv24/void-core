@@ -98,6 +98,26 @@ def main() -> int:
     # and the normal form is genuinely non-trivial (two dups survive on the leaves)
     assert sorted(a.glyph for a in canon.agents.values()).count("dup") == 2
 
+    # ── SCHEDULE-INDEPENDENT IDENTITY: same net, any order, same *names* ──────────
+    # Confluence alone gives the same normal form up to renaming. Peers merging by
+    # reduction need more than that: the same BYTES. Because rule-created agents are
+    # named from the redex rather than from a counter, every schedule agrees on the
+    # actual ids too — this is the property a sequential counter cannot have.
+    names = {tuple(sorted(canon.agents))}
+    wiring = {tuple(sorted((min(p, q), max(p, q)) for p, q in canon.link.items()))}
+    for seed in range(40):
+        rng = random.Random(seed)
+        nf = R.reduce(confluence_net(), pick=lambda ps: rng.choice(ps)).check()
+        names.add(tuple(sorted(nf.agents)))
+        wiring.add(tuple(sorted((min(p, q), max(p, q)) for p, q in nf.link.items())))
+    assert len(names) == 1, f"ids are schedule-dependent: {len(names)} distinct id sets"
+    assert len(wiring) == 1, f"wiring is schedule-dependent: {len(wiring)} variants"
+    # the property is only meaningful if reduction actually minted names
+    assert any(n.startswith("_r") for n in next(iter(names))), next(iter(names))
+    # ...and it is a property of the net, not of this process: no clock, no RNG, no
+    # global counter, so an independent reduction of an equal net agrees exactly
+    assert tuple(sorted(R.reduce(confluence_net()).agents)) == next(iter(names))
+
     # ── termination guard: a self-regenerating rule raises within budget ──────────
     def loopfn(a, b, fresh):
         l1, l2 = Agent(fresh(), "loop", 0), Agent(fresh(), "loop", 0)
@@ -232,8 +252,8 @@ def main() -> int:
         pass
 
     print("REDUCE: OK (identity, annihilation ±swap, commutation, CONFLUENCE x40",
-          "schedules, termination guard, opaque, purity, internal-wire resolution +",
-          "strict locality, expand, mantle adapter)")
+          "schedules, SCHEDULE-INDEPENDENT IDS x40, termination guard, opaque, purity,",
+          "internal-wire resolution + strict locality, expand, mantle adapter)")
     return 0
 
 

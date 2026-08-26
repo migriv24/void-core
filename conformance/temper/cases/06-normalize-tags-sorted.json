@@ -1,0 +1,63 @@
+{
+  "case": "06-normalize-tags-sorted",
+  "description": "`normalize_tags` with `sort: true` — de-duplicate AND sort. This is the flavor a content-addressing peer wants, because unsorted-but-deduplicated tag lists make two equal tag SETS serialize to different bytes. Sorting is bytewise on the tag strings. Off by default: the order-preserving flavor is the one an editing UI wants, so the choice stays the author's.",
+  "spec": [
+    {
+      "rule": "normalize_tags",
+      "sort": true
+    }
+  ],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "unsorted"
+        },
+        "glyph": "note",
+        "content": {},
+        "tags": [
+          "zeta",
+          "alpha",
+          "zeta",
+          "Beta",
+          "status:live"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "no-tags-container"
+        },
+        "glyph": "note",
+        "content": {}
+      }
+    ]
+  },
+  "expect": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "unsorted"
+        },
+        "glyph": "note",
+        "content": {},
+        "tags": [
+          "Beta",
+          "alpha",
+          "status:live",
+          "zeta"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "no-tags-container"
+        },
+        "glyph": "note",
+        "content": {}
+      }
+    ]
+  }
+}

@@ -18,6 +18,7 @@ set(VC_SOURCES
   src/model/mantle.c
   src/model/binding.c
   src/dispatch/args.c
+  src/dispatch/codec.c
   src/dispatch/dispatch.c
   src/dispatch/dispatch_util.c
   src/dispatch/verbs_query.c

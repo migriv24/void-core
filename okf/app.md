@@ -3,7 +3,7 @@ type: Manifest
 title: Void Core
 name: Void Core
 id: voidcore
-version: 0.2.5
+version: 0.2.7
 description: A host-agnostic engine other applications build on — runes, mantles, holidays, and the Reduce/Temper/Scry layers.
 status: current
 authors: [migriv24]

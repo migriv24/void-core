@@ -1,0 +1,66 @@
+{
+  "case": "02-where-grammar",
+  "description": "`where` is the SPEC §5 tag grammar, evaluated exactly as the C core's `vc_filter_eval` evaluates it. Pinned here: a bare tag; the three reserved matches (a rune's own NAME is a tag, and `glyph:<glyph>` is a tag); adjacency as implicit AND; explicit AND/OR/NOT and their symbol forms; parentheses; and an empty expression matching everything. Implementations SHOULD call the C ABI's `vc_tag_match` rather than re-implementing this — see README.md §2.",
+  "op": "tag_match",
+  "expr": "(status:live OR status:draft) AND !kind:archived",
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "note",
+        "tags": [
+          "status:live"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "beta"
+        },
+        "glyph": "note",
+        "tags": [
+          "status:draft",
+          "kind:archived"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "gamma"
+        },
+        "glyph": "task",
+        "tags": [
+          "status:draft"
+        ]
+      },
+      {
+        "spirit": {
+          "id": "rune_d",
+          "name": "status:live"
+        },
+        "glyph": "task",
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_e",
+          "name": "epsilon"
+        },
+        "glyph": "note",
+        "tags": [
+          "status:retired"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "names": [
+      "alpha",
+      "gamma",
+      "status:live"
+    ]
+  }
+}

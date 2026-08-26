@@ -16,6 +16,8 @@ When a track matures into contract, it lands in `SPEC.md`.
 * [C core with FFI bindings](/design/c-core-architecture.md) - why one C library + thin bindings; core vs holiday boundary
 * [Domains and guarantees](/design/domains-and-guarantees.md) - where Void Core applies; the forge, not the artifact
 * [Command architecture](/design/command-architecture.md) - the one dispatcher command surface
+* [Host extension seams](/design/host-extension-seams.md) - the blessed shape for host-registered verbs (compile-to-`batch` macros) and pluggable `where`-predicates
+* [The effect seam & the session boundary](/design/effect-seam-and-session-boundary.md) - four parked contract questions from Void Maiz: an effect handler that cannot fail a dispatch, `save` moving `_baseline` when the adapter didn't, whether history is session-scoped by design, and whether the derived-id hash should be normative
 
 ## Transformation layers
 

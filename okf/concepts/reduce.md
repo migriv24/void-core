@@ -21,7 +21,8 @@ previewable, undoable; effects never fire from inside it.
 # Status
 
 `current` — **built (2026-06-28)**: `VoidCore/reduce/` (`from voidcore import Reducer, Net, Agent,
-annihilate, commute, expand, to_net, from_net`). A faithful Lafont interaction-net
+annihilate, commute, expand, to_net, from_net`). A faithful
+[Lafont](/sources/lafont-interaction-nets.md) interaction-net
 reducer: a `Net` of `Agent`s with a principal + auxiliary ports and a symmetric wiring map
 (`reduce/net.py`, the deferred §4 port-signature groundwork), and the `Reducer`
 (`reduce/reduce.py`) — glyph-pair rule registration with the conflict guard, `reduce()` to
@@ -64,7 +65,19 @@ loops-as-values count them outside the contract); under commute the equations jo
 corresponding copies' *principals* — a fresh active pair, Lafont's own picture.
 `strict_locality=True` (case key `"strict_locality"`) restores the restricted subset's
 `locality` rejection. Cases 11–14 pin swap, the internal bridge, the loop vanish, and
-the internal-wire commute; case 09 re-pins strict mode. 14/14 conformance.
+the internal-wire commute; case 09 re-pins strict mode.
+
+**Reduction-created agents are named from the redex** (0.2.6, Void Palabra's ask):
+`H(rule glyphs, the two parent ids, an ordinal)` rather than a running counter. Confluence
+alone promises the same normal form only *up to renaming*, which is the same shape but not
+the same **bytes** — so two peers picking different, equally valid, redex orders used to
+produce structurally identical nets whose agents had different `spirit.name`s. That blocks
+merge-by-reduction (two peers reaching the same normal form is a theorem on this subset, so
+merge should be free) and it is a real divergence, since a name is what
+[links](/concepts/links.md) reference and tag expressions match. Now normative in the
+contract, pinned by case 15 (`pin_ids` + 16 randomized schedules must agree on the literal
+ids) and by a law test; an implementation minting ids sequentially passes every other case
+and fails that one. **15/15 conformance.**
 
 Still `planned`: general (sub-pattern / tag-expression) rule LHS without the confluence
 guarantee, and data-form `expand` (it needs a custom build fn, so it stays code-registered).

@@ -1,0 +1,93 @@
+{
+  "case": "05-materialize",
+  "description": "`materialize` freezes resolved values into owned state — the one explicit bake. `resolved` maps rune NAME to the fields to write; a rune with no entry passes through untouched (not emptied, not stamped). With `into: \"content\"` the fields merge over existing content, overwriting on key collision. Order is preserved. Purity is enforced by the runner: the source runes must be unchanged, which is what makes this safe to preview before committing.",
+  "op": "materialize",
+  "into": "content",
+  "resolved": {
+    "alpha": {
+      "price": "12.00",
+      "title": "Overwritten"
+    },
+    "gamma": {
+      "price": "3.50"
+    },
+    "not-a-rune": {
+      "price": "999"
+    }
+  },
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "item",
+        "content": {
+          "title": "Original",
+          "sku": "A1"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "beta"
+        },
+        "glyph": "item",
+        "content": {
+          "title": "Untouched"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "gamma"
+        },
+        "glyph": "item",
+        "content": {},
+        "tags": []
+      }
+    ]
+  },
+  "expect": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "item",
+        "content": {
+          "title": "Overwritten",
+          "sku": "A1",
+          "price": "12.00"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "beta"
+        },
+        "glyph": "item",
+        "content": {
+          "title": "Untouched"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "gamma"
+        },
+        "glyph": "item",
+        "content": {
+          "price": "3.50"
+        },
+        "tags": []
+      }
+    ]
+  }
+}

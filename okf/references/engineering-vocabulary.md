@@ -8,8 +8,11 @@ timestamp: 2026-06-29T00:00:00Z
 
 A small, shared vocabulary for **designing** Void Core and **naming** things in it. These
 terms aren't new rules — they name the discipline the codebase already follows, so author
-and agent reach for the same concept with one word. Adopted from Matt Pocock's
-["Skills For Real Engineers"](https://github.com/mattpocock/skills) (MIT) and kept in line
+and agent reach for the same concept with one word. Adopted from
+[Matt Pocock's "Skills For Real Engineers"](/sources/pocock-skills-for-real-engineers.md)
+(MIT), whose design vocabulary in turn traces to
+[Ousterhout's *A Philosophy of Software Design*](/sources/ousterhout-philosophy-of-software-design.md)
+— the origin of *deep module* — and kept in line
 with how this project already thinks about knowledge: [OKF](/references/okf-spec.md) (Google's
 minimally-opinionated, producer/consumer-independent format) and Karpathy's *LLM-wiki* frame
 (the bundle is a compounding artifact; agents do the bookkeeping; `validate` is the *lint*).

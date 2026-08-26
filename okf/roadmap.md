@@ -3,7 +3,7 @@ type: Roadmap
 title: Roadmap
 description: Forward-looking index of what is still planned and the near-term build order. Dev-only; excluded from the shipped library bundle. Completed work lives in log.md, not here.
 tags: [status:current, audience:dev, confidence:asserted, roadmap]
-timestamp: 2026-07-01T00:00:00Z
+timestamp: 2026-08-25T00:00:00Z
 ---
 
 The forward-looking counterpart to the bundle `index.md` (current listing) and
@@ -44,6 +44,22 @@ remains is integration polish, per the concept pages:
   [app manifest](/concepts/app-manifest.md)
 * [Logging & debug](/concepts/logging-debug.md) - richer debug/trace tooling and a
   Voidscript-driven **test engine** (`assert`-over-dispatcher)
+* [Host extension seams](/design/host-extension-seams.md) - two host-callback
+  registrations that ride the existing spine: **verb macros** (host `compile(argv) ->
+  [command lines]`, dispatched as a `batch` — pure/undoable, distinct from the effect
+  seam) and **pluggable `where`-predicates** for Scry/`ls` (host `predicate(rune, args)`,
+  composed with the tag grammar). Stance recorded in the design note; graduates to
+  `SPEC.md` when a second consumer appears
+* [The effect seam & the session boundary](/design/effect-seam-and-session-boundary.md) -
+  four contract questions routed Core-ward by Void Maiz (2026-08-18) and parked for
+  review: **an effect handler cannot fail a dispatch** (`res_make(1)` precedes every
+  handler call, so a failed deploy returns `ok:true` — invisible to exactly the caller
+  that automates; their top ask, with a backward-compatible fix), **`save` snapshots
+  `_baseline` even when the adapter failed** (a data-loss path if `_baseline` means
+  "what reached the backend"), **stating the session boundary** in SPEC (history and
+  the log are session-scoped; `_baseline` is model content), and **making the
+  derived-id hash normative**. Stances recorded in the design note; each graduates to
+  `SPEC.md` when decided
 * [OKF engine](/components/okf-engine.md) - v0.1 (consume/produce/validate) is built;
   exposing it — and the built [graph-analytics](/concepts/graph-analytics.md) holiday — as
   [dispatcher](/concepts/dispatcher.md) verbs in the core remains (today both are

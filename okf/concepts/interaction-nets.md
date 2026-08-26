@@ -4,10 +4,11 @@ title: Interaction nets
 description: The mathematical foundation for runes, mantles, and rewriting — the formalism is decided and its executor (Reduce) is built.
 resource: okf/design/interaction-nets-theory.md
 tags: [status:current, audience:dev, confidence:asserted, foundation, research]
-timestamp: 2026-07-01T00:00:00Z
+timestamp: 2026-08-09T00:00:00Z
 ---
 
-**Interaction nets** (Lafont) are the mathematical foundation Void Core is built
+**Interaction nets** ([Lafont](/sources/lafont-interaction-nets.md)) are the mathematical
+foundation Void Core is built
 toward: [runes](/concepts/rune.md) as agents/monoids, a [mantle](/concepts/mantle.md)
 as a net whose `rules` are rewrite rules, and edges between them as
 [links](/concepts/links.md). They make "a mantle controls the rewrite rules of its

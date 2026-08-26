@@ -1,0 +1,50 @@
+{
+  "case": "07-provenance",
+  "description": "`provenance` is Void Core's one existing BYTE-level commitment: canonical JSON (object keys sorted, no whitespace, non-ASCII emitted as UTF-8 rather than \\u escapes), SHA-256, first 16 hex chars. Pinned here: key order does not matter (values 0 and 1 are the same object written two ways and MUST hash identically); nesting sorts at every level; unicode is not escaped; empty containers are distinguishable from each other and from null. Values 6 and 7 pin the known cross-language hazard — an integer and a float of equal value hash DIFFERENTLY, because `1` and `1.0` are different JSON text. See README.md §4 before putting floats in stamped data.",
+  "op": "provenance",
+  "values": [
+    {
+      "b": 2,
+      "a": 1
+    },
+    {
+      "a": 1,
+      "b": 2
+    },
+    {
+      "outer": {
+        "z": [
+          1,
+          2
+        ],
+        "a": {
+          "n": null,
+          "m": true
+        }
+      }
+    },
+    {
+      "text": "café — 日本語"
+    },
+    {},
+    [],
+    {
+      "n": 1
+    },
+    {
+      "n": 1.0
+    }
+  ],
+  "expect": {
+    "ids": [
+      "43258cff783fe703",
+      "43258cff783fe703",
+      "197bfe5be6a0472e",
+      "e6cb59cb9e4df13a",
+      "44136fa355b3678a",
+      "4f53cda18c2baa0c",
+      "2bfd14f43d17fc7c",
+      "3b6b06ecd1c968c8"
+    ]
+  }
+}

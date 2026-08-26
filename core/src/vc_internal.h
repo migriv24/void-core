@@ -15,7 +15,7 @@
 
 /* The ONE version string — vc_version() and the `version` verb both return it.
  * (Bump here; 0.2.2/0.2.3 drifted because it was duplicated in vc_manager.c.) */
-#define VC_VERSION_STR "0.2.5"
+#define VC_VERSION_STR "0.2.7"
 
 /* An undo frame: a snapshot of the undoable slice of state (mantles + active),
  * labelled by the command that produced it (SPEC §6). v0 is memento-based; the
@@ -135,8 +135,21 @@ cJSON *vc_script_run(struct VC_Manager *m, const char *source, cJSON *args);
 typedef struct {
   char **items;
   int count;
+  /* SPEC §6.1 rule 5: a quoted run that is still open at end of input. Since
+   * 0.2.7 that is an ERROR rather than a silent run-to-end — it was the single
+   * property that made every bug in this class quiet. */
+  int unterminated;
 } vc_argv;
-vc_argv vc_argv_split(const char *line); /* quote-aware tokenizer */
+/* The ONE §6.1 quote automaton. Every scanner in this tree that needs to know
+ * whether it is inside a quoted run calls this — the argv tokenizer and the
+ * Voidscript statement reader. Do not write a second one. */
+int vc_quote_step(const char *p, char *quote, int *emit);
+char *vc_arg_quote(const char *value);  /* the §6.1 encoder; caller frees */
+vc_argv vc_argv_split(const char *line); /* the §6.1 decoder (quote-aware) */
+char *vc_argv_join(const vc_argv *a);   /* canonical re-splittable line; frees */
+/* dispatch/codec.c — the exported §6.1 codec (see include/voidcore.h) */
+char *vc_argv_split_json(const char *line);
+char *vc_transcript_split_json(const char *src);
 /* Rewrite POSIX-flavored aliases to their canonical verb form (SPEC §7) —
  * argument-aware (e.g. `rm x` -> `rune rm x`), applied before routing. */
 void vc_argv_desugar(vc_argv *a);

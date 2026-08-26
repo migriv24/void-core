@@ -1,0 +1,35 @@
+{
+  "case": "07-unknown-rule",
+  "description": "A spec naming a rule the implementation does not know MUST be rejected, not skipped. Silently ignoring an unrecognized rule is the dangerous failure: the pass reports success while the invariant it was supposed to enforce never ran, and the drift shows up later as corrupt-looking data. Temper specs ride in the state document, so a bundle authored against a newer implementation must fail loudly on an older one.",
+  "spec": [
+    {
+      "rule": "dedupe",
+      "field": "images"
+    },
+    {
+      "rule": "reticulate_splines",
+      "field": "images"
+    }
+  ],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "alpha"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "a.png",
+            "a.png"
+          ]
+        },
+        "tags": []
+      }
+    ]
+  },
+  "expect": {
+    "error": "unknown-rule"
+  }
+}

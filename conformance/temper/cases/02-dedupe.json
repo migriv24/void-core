@@ -1,0 +1,116 @@
+{
+  "case": "02-dedupe",
+  "description": "`dedupe` removes repeats from a content list field, preserving FIRST-SEEN order (not sorted, not last-seen). A field that is absent, null, or not a list passes through untouched rather than being coerced into a list — Temper canonicalizes what is there and never invents a type.",
+  "spec": [
+    {
+      "rule": "dedupe",
+      "field": "images"
+    }
+  ],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "repeats"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "c.png",
+            "a.png",
+            "c.png",
+            "b.png",
+            "a.png"
+          ]
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "already-clean"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "a.png"
+          ]
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "wrong-type"
+        },
+        "glyph": "note",
+        "content": {
+          "images": "not-a-list"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_d",
+          "name": "absent"
+        },
+        "glyph": "note",
+        "content": {},
+        "tags": []
+      }
+    ]
+  },
+  "expect": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "repeats"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "c.png",
+            "a.png",
+            "b.png"
+          ]
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "already-clean"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "a.png"
+          ]
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_c",
+          "name": "wrong-type"
+        },
+        "glyph": "note",
+        "content": {
+          "images": "not-a-list"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_d",
+          "name": "absent"
+        },
+        "glyph": "note",
+        "content": {},
+        "tags": []
+      }
+    ]
+  }
+}

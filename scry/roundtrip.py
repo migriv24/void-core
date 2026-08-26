@@ -70,9 +70,17 @@ def check_roundtrip(
     rep = RoundTripReport(label=label)
     for i, x in enumerate(samples):
         rep.checked += 1
-        back = unscry(scry(x))
-        for k, e, g in _diff(norm(x), norm(back)):
-            rep.mismatches.append((i, k, e, g))
+        # A projection that RAISES on a sample is lossy in the way that matters, so it
+        # is recorded as a mismatch and the run continues — one bad sample must not
+        # deny you the report on the other 281. (Void Hormiga, 2026-08-17: their own
+        # harness had to learn this.) It also makes a wrong-domain `normalize` on a
+        # composed Lens surface as a readable failure instead of a traceback.
+        try:
+            back = unscry(scry(x))
+            for k, e, g in _diff(norm(x), norm(back)):
+                rep.mismatches.append((i, k, e, g))
+        except Exception as exc:                     # noqa: BLE001 - any failure is a failure
+            rep.mismatches.append((i, "", x, f"<{type(exc).__name__}: {exc}>"))
     return rep
 
 

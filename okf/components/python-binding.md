@@ -4,7 +4,7 @@ title: Python binding
 description: The ctypes binding wrapping the libvoidcore.dll C ABI; first binding target.
 resource: bindings/python/voidcore.py
 tags: [status:current, audience:dev, confidence:asserted]
-timestamp: 2026-06-28T00:00:00Z
+timestamp: 2026-08-25T00:00:00Z
 ---
 
 The first language binding for the [C core](/components/c-core.md): a thin `ctypes`
@@ -15,6 +15,21 @@ directly. Exercised by the [MeshDB holiday](/components/meshdb-holiday.md) smoke
 
 `VoidCore(state).dispatch(cmd) -> {ok,lines,data}`, `export_state()`,
 `register_glyph()`, **`set_effect_handler(fn)`**, context-manager `close()`.
+
+# The pure surface (no engine, no build)
+
+`quote_arg`, `split_args`, `split_transcript`, `Lens`/`pipeline`/`check_roundtrip`,
+and the Scry/Temper/Reduce layers import with **no compiled library at all** —
+`ctypes.CDLL` is called inside `VoidCore.__init__`, never at module scope. That is a
+**guarantee, not an accident**: `voidcore/pure_import_test.py` poisons `CDLL` and
+still exercises the surface, so moving a load to module scope fails a test rather
+than silently breaking an archival tool (Void Reyna's ask, 0.2.6).
+
+The [§6.1 codec](/concepts/dispatcher.md) lives here in both forms — the pure
+Python functions above, and `arg_quote` / `argv_split` / `transcript_split` methods
+that call the C implementation, which is how `voidcore/codec_test.py` checks the two
+against each other. The C-side three are bound **leniently**, so this binding still
+loads against a library older than 0.2.7 and says so if you reach for them.
 
 # Effect handler
 
@@ -27,5 +42,6 @@ holiday query) through host code.
 
 # Status
 
-`current` — dispatch/state/glyph/effect-handler paths, binding smoke + `effect_test.py`
-green.
+`current` — dispatch/state/glyph/effect-handler paths, the pure surface, and the
+§6.1 codec; binding smoke, `effect_test.py`, `attribution_test.py`,
+`pure_import_test.py`, `version_test.py` and `codec_test.py` green.

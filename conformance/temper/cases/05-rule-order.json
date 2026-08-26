@@ -1,0 +1,86 @@
+{
+  "case": "05-rule-order",
+  "description": "Rules apply IN ORDER, and the order is observable. Here `dedupe` runs before `member_or_default`, so the pointer is validated against the de-duplicated list. This is the pinning case for 'a Temper pass is an ordered pipeline, not a set of constraints solved to a fixed point' — an implementation that sorts, groups by rule kind, or iterates to convergence disagrees with the reference here even though every individual rule matches.",
+  "spec": [
+    {
+      "rule": "dedupe",
+      "field": "images"
+    },
+    {
+      "rule": "member_or_default",
+      "target": "thumb",
+      "source": "images"
+    },
+    {
+      "rule": "default_content",
+      "field": "caption",
+      "value": "(untitled)"
+    }
+  ],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "pipeline"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "b.png",
+            "a.png",
+            "b.png"
+          ],
+          "thumb": "dropped.png",
+          "caption": ""
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "caption-kept"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [],
+          "caption": "a real caption"
+        },
+        "tags": []
+      }
+    ]
+  },
+  "expect": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "rune_a",
+          "name": "pipeline"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [
+            "b.png",
+            "a.png"
+          ],
+          "thumb": "b.png",
+          "caption": "(untitled)"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "rune_b",
+          "name": "caption-kept"
+        },
+        "glyph": "note",
+        "content": {
+          "images": [],
+          "caption": "a real caption",
+          "thumb": null
+        },
+        "tags": []
+      }
+    ]
+  }
+}

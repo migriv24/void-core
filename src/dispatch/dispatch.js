@@ -70,7 +70,7 @@ function createDispatcher({ state, store, glyphs, logger, adapters = {}, config 
   // forks behavior. `renames` swap the verb; `desugars` splice in the family
   // verb so `rm x` means `rune rm x` (not `rune x`).
   const renames = { '?': 'help', man: 'help', quit: 'exit', pwd: 'where', dump: 'export', grep: 'find', cd: 'use' };
-  const desugars = { rm: ['rune', 'rm'], mv: ['rune', 'rename'], cp: ['rune', 'dup'], mkdir: ['mantle', 'new'] };
+  const desugars = { rm: ['rune', 'rm'], mv: ['rune', 'rename'], cp: ['rune', 'dup'], mkdir: ['mantle', 'new'], rmdir: ['mantle', 'rm'] };
 
   // Shared surface handed to every verb-family factory. `handlers` is filled in
   // just below so a handler can delegate to a sibling (e.g. mantle -> mantles) at

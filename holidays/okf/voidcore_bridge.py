@@ -11,8 +11,13 @@ bundle into a real Void Core mantle (the other half — pure-Python querying —
     description/resource/timestamp <-> facets what/where/when
     tags               <-> tags
     body (markdown)    <-> content.body (opaque)
+    notes (markdown)   <-> content.notes (opaque, after the `<!-- okf:notes -->` marker)
     link               <-> mantle layout.edge {from, to, relation:"links"}
     Bundle             <-> mantle
+
+`body` and `notes` are two fields of one rune so that a *generated* bundle can carry a
+hand-authored half: re-producing overwrites `body` and structurally cannot touch
+`notes`. There is no merge step, because the truth is the rune, not the file.
 
 `consume` hydrates a state document and loads it through `vc_create` (bulk import),
 then the dispatcher operates on it. `produce` reads `export_state` back out and writes
@@ -30,11 +35,12 @@ _REPO = os.path.abspath(os.path.join(_HERE, "..", ".."))
 sys.path.insert(0, _HERE)
 sys.path.insert(0, os.path.join(_REPO, "bindings", "python"))
 
-from bundle import Bundle, load_bundle  # noqa: E402
+from bundle import NOTES_MARKER, Bundle, load_bundle  # noqa: E402
 from voidcore import VoidCore  # noqa: E402
 
 OKF_GLYPH = {"glyph": "okf-concept", "label": "OKF concept", "editor": "markdown",
-             "fields": ["body", "title", "description", "resource", "timestamp", "okf_type"]}
+             "fields": ["body", "notes", "title", "description", "resource", "timestamp",
+                        "okf_type"]}
 _FACETS = ("who", "what", "when", "where", "why", "how")
 MANTLE = "okf"
 
@@ -54,8 +60,9 @@ def consume(bundle: Bundle, mantle: str = MANTLE) -> VoidCore:
             "glyph": "okf-concept",
             "facets": facets,
             "tags": list(c.tags) + [f"type:{c.type}"],
-            "content": {"body": c.body, "title": c.title, "description": c.description,
-                        "resource": c.resource, "timestamp": c.timestamp, "okf_type": c.type},
+            "content": {"body": c.body, "notes": c.notes, "title": c.title,
+                        "description": c.description, "resource": c.resource,
+                        "timestamp": c.timestamp, "okf_type": c.type},
             "placement": None,
             "relations": [],
         })
@@ -91,9 +98,20 @@ def produce(vc: VoidCore, out_dir: str, *, where: str = "", mantle: str = MANTLE
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write(_frontmatter(okf_type, content, tags))
-            f.write(content.get("body", ""))
+            f.write(_body_and_notes(content))
         written += 1
     return written
+
+
+def _body_and_notes(content: dict) -> str:
+    """The two halves of a concept's markdown. A rune with no `notes` writes exactly
+    what it always did — byte-identical, so hand-authored bundles are unaffected."""
+    body = content.get("body") or ""
+    notes = content.get("notes") or ""
+    if not notes:
+        return body
+    sep = "" if not body else ("\n" if body.endswith("\n") else "\n\n")
+    return f"{body}{sep}{NOTES_MARKER}\n\n{notes}"
 
 
 def _type_from_tags(tags: list[str]) -> str:
@@ -142,6 +160,7 @@ def _round_trip(bundle_dir: str) -> int:
         assert d.type == c.type, (cid, d.type, c.type)
         assert set(d.tags) == set(c.tags), (cid, set(d.tags) ^ set(c.tags))
         assert d.body.strip() == c.body.strip(), cid
+        assert d.notes == c.notes == "", cid  # no notes in, no marker out
     print(f"round-trip bundle->core->bundle: OK  ({n} concepts, {len(rt.edges)} links identical)")
 
     # produce only the library projection
@@ -151,8 +170,42 @@ def _round_trip(bundle_dir: str) -> int:
     assert set(libbundle.concepts) == okf_current
     assert "roadmap" not in libbundle.concepts
     print(f"library projection produced: OK  ({k} concepts, roadmap excluded)")
+
+    _notes_survive_reproduce(vc, src, os.path.dirname(out))
     vc.close()
     return 0
+
+
+def _notes_survive_reproduce(vc: VoidCore, src: Bundle, tmp: str) -> None:
+    """The generated-bundle case: a machine rewrites `body`, a human owns `notes`, and
+    a re-produce cannot eat the human's half — the two are different fields of one rune."""
+    cid = "app" if "app" in src.concepts else next(iter(src.concepts))
+    note = "Hand-authored. Machines rewrite the [body](/concepts/rune.md); this survives."
+    vc.dispatch(f'set {cid} notes "{note}"')
+
+    first = os.path.join(tmp, "notes1")
+    produce(vc, first)
+    a = load_bundle(first).concepts[cid]
+    assert a.notes == note, a.notes
+    assert a.body.strip() == src.concepts[cid].body.strip(), cid
+    assert "concepts/rune" in a.links, a.links  # notes link into the graph too
+
+    # a re-harvest: the body is overwritten wholesale, the notes are never touched
+    vc.dispatch(f'set {cid} body "Re-harvested body."')
+    second = os.path.join(tmp, "notes2")
+    produce(vc, second)
+    b = load_bundle(second).concepts[cid]
+    assert b.body == "Re-harvested body." and b.notes == note, (b.body, b.notes)
+
+    # and produce is a fixed point once the split exists (no drifting whitespace)
+    third = os.path.join(tmp, "notes3")
+    vc2 = consume(load_bundle(second))
+    produce(vc2, third)
+    vc2.close()
+    assert open(os.path.join(third, f"{cid}.md"), encoding="utf-8").read() == \
+        open(os.path.join(second, f"{cid}.md"), encoding="utf-8").read()
+    print("notes field (harvest + hand-authored halves): OK  "
+          "(re-produce overwrites body, never notes; byte-stable)")
 
 
 if __name__ == "__main__":

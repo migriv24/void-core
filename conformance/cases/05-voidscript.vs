@@ -7,7 +7,11 @@ let x = world
 let msg = hello-$x
 assert $msg == hello-world
 let braced = ${x}!
-assert $braced == world!
+# The right-hand side is QUOTED: `!` is an operator in a condition, so a bare
+# `world!` compares as `world` and the trailing `!` is dropped. This assertion
+# used to pass without ever comparing anything (0.2.6 and earlier read `${x}` as
+# a block, so $braced was empty and the malformed token stream evaluated truthy).
+assert $braced == 'world!'
 
 # if / elif / else
 let mode = b
