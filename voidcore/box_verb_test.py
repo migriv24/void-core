@@ -14,7 +14,13 @@ AND a rune in the world; an amulet in the world recolours a shirt inside the pla
 from __future__ import annotations
 
 import json
+import os
 import sys
+
+# Run straight from a clone: `python voidcore/<name>.py` puts THIS directory on
+# sys.path, not the repo root, so the top-level `voidcore` package would not
+# resolve without an editable install. Put the repo root first ourselves.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # The package wires the layer paths itself (voidcore/__init__.py); importing it first
 # keeps `bindings/python/voidcore.py` from shadowing the package name.

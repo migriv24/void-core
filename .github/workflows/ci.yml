@@ -62,14 +62,20 @@ jobs:
         shell: bash
         run: python conformance/run.py --dll "$PWD/dist/${{ matrix.lib }}"
 
-      # The Python transformation layers + binding tests + the portable reduce
-      # executor contract (conformance/reduce). One platform suffices — the layers
-      # are pure Python; the binding tests load the fresh build via default search.
-      - name: Layer tests + reduce executor conformance
+      # The Python transformation layers + binding tests + the portable executor
+      # contracts. One platform suffices — the layers are pure Python; the binding
+      # tests load the fresh build via default search.
+      #
+      # Nothing is pip-installed on purpose. A developer machine usually has this
+      # repo installed editable, which silently puts the repo root on sys.path and
+      # hides a test that cannot find its own package from a clean clone. CI is the
+      # only place that is guaranteed clean, so it must stay that way.
+      - name: Layer tests + executor conformance
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           python reduce/reduce_test.py
+          python reduce/box_test.py
           python temper/temper_test.py
           python scry/projection_test.py
           python scry/lens_test.py
@@ -77,9 +83,20 @@ jobs:
           python voidcore/spec_test.py
           python voidcore/reduce_verb_test.py
           python voidcore/dispatch_test.py
+          python voidcore/box_verb_test.py
+          python voidcore/codec_test.py
+          python voidcore/version_test.py
+          python voidcore/pure_import_test.py
           python bindings/python/effect_test.py
           python bindings/python/attribution_test.py
+          python bindings/python/journal_test.py
+          python bindings/python/undo_control_test.py
+          python holidays/okf/manifest_test.py
+          python holidays/okf/theme_test.py
           python conformance/reduce/run.py
+          python conformance/temper/run.py
+          python conformance/scry/run.py
+          python holidays/okf validate
 
       - uses: actions/upload-artifact@v4
         with:

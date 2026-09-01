@@ -8,7 +8,13 @@ that scry / temper / materialize behave per SPEC §7 and stay undoable.
 """
 from __future__ import annotations
 
+import os
 import sys
+
+# Run straight from a clone: `python voidcore/<name>.py` puts THIS directory on
+# sys.path, not the repo root, so the top-level `voidcore` package would not
+# resolve without an editable install. Put the repo root first ourselves.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from voidcore import (
     Dispatcher, Selector, Temper, VoidCore,
