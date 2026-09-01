@@ -125,8 +125,8 @@ The base a mantle sits on — the hosting target.
 ```jsonc
 {
   "name": "biology-portfolio",
-  "repo":   "C:/Users/migri/Documents/GitHub/bi103-final-portfolio",
-  "liveUrl": "https://migriv24.github.io/bi103-final-portfolio/",
+  "repo":   "/path/to/some-portfolio-site",
+  "liveUrl": "https://example.github.io/some-portfolio-site/",
   "build":  "npm run build",
   "deploy": "npm run deploy",
   "preview": "npm run dev",          // command Void Core runs for localhost
@@ -415,8 +415,8 @@ is shared. (Revisit only if a twin needs to diverge from the spine itself.)
 
 ## 10. First real twin: the Biology Portfolio manager
 
-Target site: `C:\Users\migri\Documents\GitHub\bi103-final-portfolio` (Vite +
-gh-pages, live at `https://migriv24.github.io/bi103-final-portfolio/`).
+Target site: a small Vite + gh-pages portfolio site checked out beside this
+repo (its path and live URL are the operator's; nothing here depends on them).
 
 What the user needs it to manage (from the brief — *not* "add more bubbles";
 there are exactly **9** concepts, fixed by the assignment):

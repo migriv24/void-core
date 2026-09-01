@@ -28,3 +28,25 @@ build/
 *.o
 *.obj
 *.a
+
+# ── PRE-PUBLICATION SWEEP (2026-09-01) ──────────────────────────────────────
+#
+# Caught by the dry-run probe, or known to appear the moment a normal workflow
+# is run from the repo root rather than from build/.
+
+# CTest's scratch directory, written into the source tree by `ctest` at root.
+Testing/
+
+# Where .github/workflows/ci.yml collects the per-platform library before
+# uploading it as a release artifact. A local rehearsal of that step leaves a
+# built .dll/.so/.dylib at the repo root.
+dist/
+
+# Local virtualenvs for the Python binding.
+.venv/
+venv/
+
+# There are no npm dependencies (THIRD-PARTY-NOTICES.md). A lockfile here can
+# only be a stale artifact — one for express/multer, unused by any code in
+# src/, survived from v0.1.0 until the 0.2.12 sweep removed it.
+package-lock.json

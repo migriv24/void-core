@@ -7,15 +7,18 @@ grammar, the **Voidscript** runner, a logging spine, and an adapter/effect seam
 ("holidays") where all real I/O lives. No LLM embedded — architected so agents
 drive it through the dispatcher surface.
 
-The reference implementation is the **C core** (`core/`, ~3.5k lines of plain
+The reference implementation is the **C core** (`core/`, ~5k lines of plain
 C11 + vendored cJSON) exposing a pure C ABI (`core/include/voidcore.h`), so any
 language binds to it. A Python ctypes binding (`bindings/python/voidcore.py`) is
 the primary consumption path today; the JS prototype (`src/`) is kept as the
-conformance oracle. Current version: **0.2.0**.
+conformance oracle. Current version: **0.2.12**.
 
-**Standalone project.** Its own git repo; applications (Hormiga, Portfolio
-Manager, Fountain, FaultSack) vendor or locally install it and are developed in
-their own repos — Void Core stays isolated.
+**Standalone project.** Void Core links nothing and expects no sibling checkout
+beside it: a clean clone builds and passes every suite on its own. The traffic
+runs the other way — sibling applications (Void Hormiga, Void Maiz, Void Unity,
+Void Palabra, Void Loops Studio and others) vendor a prebuilt library or
+`pip install -e` this repo from `../VoidCore`, and are developed in their own
+repos. `void.json` at the root declares that shape for the family tooling.
 
 > **Agents & contributors: start at [`okf/index.md`](okf/index.md)** — the
 > [Open Knowledge Format](okf/references/okf-spec.md) bundle that describes Void
@@ -37,10 +40,24 @@ Documents, by role:
 Build locally (any platform with CMake + a C compiler):
 
 ```bash
-cmake -S core -B core/build -G Ninja
+cmake -S core -B core/build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build core/build          # -> core/build/bin/libvoidcore.dll / .so / .dylib
-python conformance/run.py         # SPEC §11 suite against the fresh build
+./core/build/bin/vc_smoke         # C smoke test
 ```
+
+Then the four language-neutral suites (SPEC §11) against that fresh build, plus
+the OKF bundle's own conformance check:
+
+```bash
+python conformance/run.py          # 16/16  core dispatcher cases (Voidscript)
+python conformance/reduce/run.py   # 25/25  Reduce executor cases (pure JSON)
+python conformance/temper/run.py   #  8/8   Temper cases
+python conformance/scry/run.py     #  8/8   Scry cases
+python holidays/okf validate       # OKF §9 conformance + drift report
+```
+
+Python needs no packages beyond the standard library, and the JS oracle needs no
+npm packages at all — Node built-ins only, so there is nothing to `npm install`.
 
 Or take a prebuilt library from a **GitHub Release**: every `v*` tag publishes
 `libvoidcore-win-x64.dll`, `libvoidcore-macos-universal.dylib`, and
@@ -73,10 +90,14 @@ delegates everything else to the C core unchanged. See `SPEC.md` §7.
 ## Use the JS oracle as a CLI
 
 ```bash
-npm install
 node src/cli/cli.js --state ./demo/state.json            # interactive REPL
-node src/cli/cli.js --state ./demo/state.json --json ls  # machine output
+node src/cli/cli.js --state ./demo/state.json ls         # one-shot
+node src/cli/cli.js --state ./demo/state.json --json-out ls   # machine output
 ```
+
+`--state` is plucked before the command; `--json-out` (or a trailing `--json` on
+the command itself) switches the output to JSON. A `--json` placed *before* the
+command is read as the command and fails — put it last.
 
 ## The model in one breath
 
@@ -90,16 +111,16 @@ node src/cli/cli.js --state ./demo/state.json --json ls  # machine output
 
 ## Command surface
 
-`describe ls tree get find cat status diff history glyphs axes mantles domain
-validate where links · set setjson facet tag rune link unlink mantle bind
-bindings unbind undo redo batch · save deploy build preview effect revert ·
-scry temper materialize reduce (seam) · script log use config export import
-help version exit`
+`describe ls tree get find cat status diff history journal glyphs axes mantles
+domain validate where links · set setjson facet tag rune link unlink mantle bind
+bindings unbind undo redo batch · place · save deploy build preview effect
+revert · scry temper materialize reduce (seam) · script log use config export
+import help version exit`
 
 **POSIX aliases** (SPEC §7.1 — argument-aware desugarings, never a semantic
 fork): `cd`→`use`, `pwd`→`where`, `rm <ref>`→`rune rm <ref>`, `mv`→`rune rename`,
 `cp`→`rune dup`, `mkdir`→`mantle new`, `grep`→`find`, `man`/`?`→`help`,
-`quit`→`exit`, `dump`→`export`. With no active mantle, `ls` lists the mantles;
+`quit`→`exit`, `dump`→`export`, `rmdir <name>`→`mantle rm <name>`. With no active mantle, `ls` lists the mantles;
 `cd /` (or bare `use`) deactivates. Mantle ≈ directory, rune ≈ file, tag
 expression ≈ glob.
 

@@ -1,0 +1,96 @@
+{
+  "manifest": "void/0.1",
+  "name": "voidcore",
+  "display_name": "Void Core",
+  "kind": "runtime",
+  "version": "0.2.12",
+  "license": "MIT",
+  "repository": "https://github.com/migriv24/void-core",
+  "description": "A host-agnostic engine other applications build on: the rune/mantle/domain model, one command dispatcher, an axis-typed tag system, Voidscript, and the Reduce/Temper/Scry transformation layers, behind a plain C ABI.",
+
+  "requires": [],
+
+  "interacts_with": [
+    {
+      "name": "voidmaiz",
+      "kind": "runtime",
+      "seam": "c-abi",
+      "direction": "inbound",
+      "note": "Void Maiz links libvoidcore and is a Reduce executor host; the contract it implements is conformance/reduce/. We link nothing of theirs."
+    },
+    {
+      "name": "voidhormiga",
+      "kind": "application",
+      "seam": "c-abi",
+      "direction": "inbound",
+      "note": "Vendors a prebuilt libvoidcore per platform from a v* release. Their bug reports drove SPEC 6.1 (the command codec) and the pure-import guarantee."
+    },
+    {
+      "name": "voidpalabra",
+      "kind": "runtime",
+      "seam": "c-abi",
+      "direction": "inbound",
+      "note": "Storage/versioning/sync layer over the core; forced the temper/scry conformance contracts and the constraint that spirit.id is never content-derived."
+    },
+    {
+      "name": "voidunity",
+      "kind": "application",
+      "seam": "conformance-cases",
+      "direction": "inbound",
+      "note": "Vendors the pure-JSON conformance cases and runs them as stored; their findings produced the CRLF case and the patch content rule."
+    },
+    {
+      "name": "voidloopsstudio",
+      "kind": "application",
+      "seam": "c-abi",
+      "direction": "inbound",
+      "note": "Reduce/tag round-trip consumer; their reports closed the 0.2.2 seam bugs."
+    },
+    {
+      "name": "voidreyna",
+      "kind": "application",
+      "seam": "transcript",
+      "direction": "inbound",
+      "note": "Emits dispatcher transcripts in the SPEC 6.1 command encoding. No link, no shared binary — the seam is the transcript format."
+    },
+    {
+      "name": "voidmago",
+      "kind": "application",
+      "seam": "void.json",
+      "direction": "outbound",
+      "note": "Reads this manifest to build the family compatibility matrix."
+    }
+  ],
+
+  "provides": {
+    "library": "libvoidcore",
+    "abi": "c",
+    "header": "core/include/voidcore.h",
+    "cli": "node src/cli/cli.js",
+    "describe": "voidcore.VoidCore().dispatch(\"describe\")",
+    "python_package": "voidcore",
+    "documents": {
+      "state": "*.state.json",
+      "script": "*.vs"
+    },
+    "contracts": {
+      "spec": "SPEC.md",
+      "conformance": "conformance/",
+      "knowledge_bundle": "okf/"
+    },
+    "artifacts": [
+      "libvoidcore-win-x64.dll",
+      "libvoidcore-macos-universal.dylib",
+      "libvoidcore-linux-x64.so"
+    ]
+  },
+
+  "platforms": ["windows-x64", "macos-universal", "linux-x64"],
+
+  "update": {
+    "channel": "desktop",
+    "side_by_side": true,
+    "signed": "ed25519",
+    "note": "Downstreams pin a runtime per platform from a v* GitHub Release rather than tracking main. The C ABI is additive-only within a 0.2.x line."
+  }
+}

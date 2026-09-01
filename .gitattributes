@@ -1,0 +1,29 @@
+# Line endings, normatively. Later rules win, so the general case comes first.
+#
+# Void Unity's 2026-08-27 finding had two halves. The core half — a CR was
+# content to the Voidscript statement reader — is fixed in 0.2.9. This file is
+# the repository half: `14-journal.vs` had drifted to CRLF while its siblings
+# were LF, so the suite was green here and red for any host that read the file
+# as stored. A checkout that differs byte-for-byte between machines is not a
+# language-neutral test suite.
+
+* text=auto
+
+# Binaries git must never touch.
+*.dll binary
+*.a   binary
+*.exe binary
+*.png binary
+
+# Conformance cases are LF everywhere, with ONE deliberate exception.
+*.vs text eol=lf
+
+# The transform-layer suites are pure-JSON cases that hosts VENDOR and run as
+# stored (Void Unity, 2026-08-28). Same reasoning as *.vs: a case file that
+# checks out differently per machine is not a language-neutral contract.
+conformance/**/*.json text eol=lf
+
+# 15-crlf.vs is stored with CRLF on purpose: it is the case that pins what §8
+# says a CR means. `-text` turns off every conversion in both directions, so the
+# bytes in git are the bytes the runner hands the library. Do not "fix" it.
+conformance/cases/15-crlf.vs -text
