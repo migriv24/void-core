@@ -28,6 +28,7 @@ import json
 import shlex
 from typing import Any, Optional
 
+from box import compose            # net composition: a mantle as a rune
 from net import NetError, from_net, to_net
 from projection import (
     Context, Selector, materialize as _materialize, scry as _scry, tag_match,
@@ -57,6 +58,7 @@ class Dispatcher:
         self._selectors: dict[str, Selector] = {}
         self._reducer = None
         self._signatures: dict[str, int] = {}
+        self._boxes: dict = {}          # glyph -> Box (reduce/box.py); {} = flat adapter
 
     # ── registration ─────────────────────────────────────────────────────────────
     def use_temper(self, temper: Temper) -> "Dispatcher":
@@ -76,24 +78,30 @@ class Dispatcher:
         self._selectors[name] = selector
         return self
 
-    def use_reducer(self, reducer, signatures: dict) -> "Dispatcher":
+    def use_reducer(self, reducer, signatures: dict, boxes: Optional[dict] = None) -> "Dispatcher":
         """Register the interaction-net reducer + glyph port signatures the `reduce` verb
-        uses (the code counterpart of a `reduce` spec)."""
+        uses (the code counterpart of a `reduce` spec). `boxes` maps a glyph to a `Box`
+        (`reduce/box.py`) — the glyphs that mean "a rune of this glyph *is* that mantle",
+        so `reduce` splices that mantle's net in at the rune's ports. Omitted or empty, the
+        adapter is exactly the flat one."""
         self._reducer = reducer
         self._signatures = dict(signatures)
+        self._boxes = dict(boxes or {})
         return self
 
     def load_specs(self, *, temper=None, selectors=None, reduce=None) -> "Dispatcher":
         """Register a Temper pass, named Selectors, and/or a reducer from **data** (JSON
         specs), via the `voidcore.spec` compilers. The data-authored counterpart of
         `use_temper` / `add_selector` / `use_reducer`."""
-        from .spec import reducer_from_spec, selector_from_spec, temper_from_spec
+        from .spec import (boxes_from_spec, reducer_from_spec, selector_from_spec,
+                           temper_from_spec)
         if temper is not None:
             self._temper = temper_from_spec(temper)
         for name, s in (selectors or {}).items():
             self._selectors[name] = selector_from_spec(s)
         if reduce is not None:
             self._reducer, self._signatures = reducer_from_spec(reduce)
+            self._boxes = boxes_from_spec(reduce)
         return self
 
     def load_from_config(self, key: str = "transform") -> "Dispatcher":
@@ -325,12 +333,20 @@ class Dispatcher:
                 i += 1
         mantle = self._active()
         try:
-            net = to_net(mantle, self._signatures)
-        except NetError as e:
+            # With boxes declared, a rune whose glyph names one is spliced in as that
+            # mantle's net (reduce/box.py) — so a player mantle can be a rune in the world
+            # and still have its own runes take part in the world's reduction, through its
+            # free ports and only through them. Without them this is `to_net` unchanged.
+            net = compose(mantle, self._signatures, boxes=self._boxes,
+                          mantles={m["name"]: m
+                                   for m in self.vc.export_state().get("mantles", [])})
+        except NetError as e:                       # BoxError is a NetError
             return {"ok": False, "lines": [f"reduce: {e}"], "data": None}
         derived = from_net(self._reducer.reduce(net), mantle_name=into)
-        lines = [f"reduced {len(mantle.get('runes', []))} -> {len(derived['runes'])} "
-                 f"agents (normal form)"]
+        n_in = len(net.agents)
+        lines = [f"reduced {len(mantle.get('runes', []))} rune(s) "
+                 + (f"({n_in} agents composed) " if n_in != len(mantle.get("runes", [])) else "")
+                 + f"-> {len(derived['runes'])} agents (normal form)"]
         if commit:
             self._install_mantle(derived)
             lines.append(f"installed mantle '{into}' (now active)")

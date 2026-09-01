@@ -1,0 +1,180 @@
+{
+  "case": "20-box-reduces-across",
+  "description": "The reason boxing is worth having: an agent OUTSIDE a boxed mantle rewrites agents INSIDE it, and no rule reaches in to do it. The world holds a player (boxed) and an `amulet`, and the amulet's principal is wired to box port 1 — which IS the inner shirt's principal, because that is what the interface says port 1 is. After composition they are an ordinary active pair in one net, so `cloth x cloth` annihilate fires by ordinary reduction: both vanish and their aux partners cross-link, which leaves the amulet's `chain` wired to the player's own `skin`. An outside object reached through the boundary and rewired the mantle's interior, using nothing but a wire to a free port. The complementary half is structural and just as important: `p1/voice` is untouched and could not have been touched, because no port of it is in the interface and every other inner port is already wired — encapsulation here is linearity, not a scope check some rule could forget.",
+  "spec": {
+    "signatures": {
+      "body": 1,
+      "cloth": 2,
+      "sound": 0
+    },
+    "boxes": {
+      "player": {
+        "mantle": "player",
+        "interface": [
+          "skin:0",
+          "shirt:0",
+          "voice:0",
+          "shirt:2"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "cloth",
+          "cloth"
+        ],
+        "rule": "annihilate"
+      }
+    ]
+  },
+  "mantles": [
+    {
+      "name": "player",
+      "runes": [
+        {
+          "spirit": {
+            "id": "r_skin",
+            "name": "skin"
+          },
+          "glyph": "body",
+          "content": {
+            "part": "skin"
+          },
+          "tags": []
+        },
+        {
+          "spirit": {
+            "id": "r_shirt",
+            "name": "shirt"
+          },
+          "glyph": "cloth",
+          "content": {
+            "colour": "white"
+          },
+          "tags": [
+            "worn"
+          ]
+        },
+        {
+          "spirit": {
+            "id": "r_voice",
+            "name": "voice"
+          },
+          "glyph": "sound",
+          "content": {
+            "pitch": "mid"
+          },
+          "tags": []
+        }
+      ],
+      "layout": {
+        "edges": [
+          {
+            "from": "shirt",
+            "to": "skin",
+            "relation": "1:1"
+          }
+        ]
+      }
+    }
+  ],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "r_p1",
+          "name": "p1"
+        },
+        "glyph": "player",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "r_amulet",
+          "name": "amulet"
+        },
+        "glyph": "cloth",
+        "content": {
+          "colour": "purple"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "r_chain",
+          "name": "chain"
+        },
+        "glyph": "sound",
+        "content": {
+          "part": "chain"
+        },
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "amulet",
+          "to": "p1",
+          "relation": "0:1"
+        },
+        {
+          "from": "amulet",
+          "to": "chain",
+          "relation": "1:0"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "body",
+          {
+            "part": "skin"
+          },
+          []
+        ],
+        [
+          "sound",
+          {
+            "part": "chain"
+          },
+          []
+        ],
+        [
+          "sound",
+          {
+            "pitch": "mid"
+          },
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "body",
+            1
+          ],
+          [
+            "sound",
+            0
+          ]
+        ]
+      ],
+      "free": [
+        [
+          "body",
+          0
+        ],
+        [
+          "sound",
+          0
+        ]
+      ]
+    }
+  }
+}

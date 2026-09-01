@@ -27,6 +27,7 @@ set(VC_SOURCES
   src/dispatch/verbs_lifecycle.c
   src/dispatch/verbs_script.c
   src/dispatch/undo.c
+  src/dispatch/journal.c
   src/dispatch/lifecycle.c
   src/scripts/voidscript.c
   src/scripts/vs_interp.c

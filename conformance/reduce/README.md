@@ -56,35 +56,121 @@ Rules arrive as data, in the `config.transform.reduce` form of the state documen
   Reversal is an involution, so either flavor is symmetric in the pair's order.
   Requires equal arity (error otherwise). At arity 0 this is pure erasure. If a
   matched boundary is free, the surviving partner is left free.
+- `patch` — the **content** rule: the pair is consumed and one side survives with
+  patched content. Selected by `keep` (which must name one of the pair's glyphs), with
+  `copy` reading fields off the *consumed* agent and `set` writing literals:
+
+  ```jsonc
+  {"glyphs": ["dye", "cloth"], "rule": "patch", "keep": "cloth",
+   "copy": {"colour": "colour"},        // survivor field <- consumed agent's field
+   "set":  {"dyed": true}}              // survivor field <- literal
+  ```
+
+  Content is the survivor's, then `copy` (a source field absent on the consumed agent is
+  **skipped**, not written as null), then `set` — so a literal wins over a copied field.
+  **`patch` is content-only**: the survivor comes back with the same **id**, glyph,
+  arity, tags and aux wiring, and only its content differs. Its **principal is left
+  free** (the thing it met is gone) and the consumed agent's aux partners are freed, so
+  `patch` never creates an active pair — which is why it cannot make a terminating rule
+  set non-terminating, and why a second dye cannot queue on the same garment: nothing
+  rewires to a free principal.
+  **The glyphs MUST differ**, and this is refused at spec-compile time. On an unordered
+  same-glyph pair, "which side survives" has no answer that is not an arbitrary
+  tiebreak, and an arbitrary tiebreak on an unordered pair is exactly the
+  schedule-dependence the derived-id rule below exists to remove.
+  A `patch` that writes nothing (`set` and `copy` both absent or empty) is refused too —
+  a pair that meets and changes no content is `annihilate`.
+  *Why it exists:* the other two rules are structural and neither writes content
+  (`commute` copies it), so *"the equipped dye makes the shirt purple"* had to be a
+  code-registered `expand`. That put a game's **structure** in data and its **content**
+  behind a recompile — the wrong way round, since the content half is what a designer
+  changes on a Tuesday afternoon. (Void Unity measured the inversion, 2026-08-29;
+  case 25 is the whole worked scenario as data.)
 - `commute` — for α (arity m) meeting β (arity n): the pair is replaced by
   m copies of β and n copies of α. β-copy k's principal takes α's external aux-k+1
   partner; α-copy j's principal takes β's external aux-j+1 partner; α-copy j's
   aux-k+1 is wired to β-copy k's aux-j+1 (the m×n grid). Copies duplicate the
   original's `content` (shallow) and start with **empty tags**.
-- **Fresh agent ids are derived from the redex**, and this is normative (it was
-  implementation-defined before 2026-07-27). An agent created by a rule MUST be named
-  from *which rule fired on which two agents*, plus an ordinal within that rewrite —
-  never from a running counter, a clock, or an RNG:
+- **Fresh agent ids are derived from the redex**, and this is normative **down to the
+  bytes** (it was implementation-defined before 2026-07-27, and the digest was
+  non-normative before 2026-08-29). An agent created by a rule MUST be named from
+  *which rule fired on which two agents*, plus an ordinal within that rewrite — never
+  from a running counter, a clock, or an RNG:
 
   ```
-  id = H( sorted(glyph_a, glyph_b), sorted(parent_id_a, parent_id_b), ordinal )
+  key = US.join( sorted(glyph_a, glyph_b) + sorted(parent_a, parent_b) + [str(ordinal)] )
+  id  = "_r" + hex( SHA-256(UTF-8 key)[0:6] )          # 12 lowercase hex digits
   ```
 
-  Both components are unordered so the id does not depend on which side the executor
-  called A. The reference uses BLAKE2b-48 rendered as `_r<12 hex>`; the *hash* is not
-  normative (most cases compare canonical forms, which are id-blind) but the
-  **property** is: two implementations, or two schedules, must agree on which agents
-  are the same agent. A rule MUST therefore call the fresh-id minter a deterministic
-  number of times in a deterministic order for given `(a, b)`.
+  where `US` is U+001F (the ASCII unit separator), `ordinal` is **1-based** and counts
+  the minter calls within one rewrite, and the hex is the digest's first 6 bytes written
+  in order, lowercase. The two sorted components are sorted **separately** and are not
+  interchangeable — a flat sort of all four strings is a different key and a wrong
+  implementation. Both components are unordered, so the id does not depend on which side
+  the executor called A. A rule MUST call the minter a deterministic number of times in
+  a deterministic order for given `(a, b)`.
 
-  **Why it is normative.** Confluence (§3) promises the same normal form only *up to
-  renaming*. A peer that merges divergent state by reducing needs the same **bytes**:
-  two peers picking different, equally valid, redex orders would otherwise produce
-  structurally identical nets whose agents have different names — and a name becomes a
-  rune's `spirit.name`, which `layout.edges` references and tag expressions match, so
-  the divergence is real rather than cosmetic. (Void Palabra's ask, 2026-07-27.)
-  Case 15 pins it; an implementation that mints ids sequentially passes every other
-  case in this suite and fails that one.
+  **Why the property is normative.** Confluence (§3) promises the same normal form only
+  *up to renaming*. A peer that merges divergent state by reducing needs the same
+  **bytes**: two peers picking different, equally valid, redex orders would otherwise
+  produce structurally identical nets whose agents have different names — and a name
+  becomes a rune's `spirit.name`, which `layout.edges` references and tag expressions
+  match, so the divergence is real rather than cosmetic. (Void Palabra's ask,
+  2026-07-27.) Case 15 pins it; an implementation that mints ids sequentially passes
+  every other case in this suite and fails that one.
+
+  **Why the digest is normative too, as of 2026-08-29.** This paragraph used to end by
+  saying the *hash* was not normative — the reference hashed with BLAKE2b-48 — on the
+  reasoning that the cases compare id-blind canonical forms anyway. Void Unity built the
+  second implementation (C#, 2026-08-28) and showed that sentence and the justification
+  above it are jointly unsatisfiable: it holds the property (all sixteen of case 15's
+  randomized schedules agree on the literal ids) and still cannot produce the same
+  **bytes** as a peer, because it hashes with SHA-256 and the reference hashed with
+  BLAKE2b. Two individually-conforming implementations then reach normal forms equal
+  only up to renaming — exactly the situation this requirement exists to prevent, and
+  one that raises no error anywhere: a join sees *different runes*, add-wins keeps both,
+  and every rule-created agent doubles. The realistic deployment is not two copies of
+  one program; it is a game client in one language and an authoring tool, server, or CI
+  job in another over one document. So the digest is now named.
+
+  **Why SHA-256 and not BLAKE2b.** Availability, and nothing else. Every standard
+  library already has SHA-256 — .NET, Unity's Mono, Go, Rust, Java, Node, browsers,
+  Python — so a second implementer vendors no cryptographic primitive in order to be
+  conformant, and does not end up testing a reimplemented BLAKE2b against RFC 7693's
+  vectors instead of Void Core's. Nothing here is a security boundary: 48 bits is a
+  naming digest, and collision resistance is not the property being bought. The
+  reference changed to match; `15-derived-ids.json`'s pinned ids were regenerated and
+  nothing else in the suite moved, which is the blast radius the id-blind canonical form
+  was designed to give.
+
+  **A derived agent inherits its parents' box, when they share one.** In a composed net
+  (§7) an agent's id may carry a `<rune>/` namespace, and a rule-created agent is prefixed
+  with the **longest common box path of its two parents** — `p1/silk` and `p1/wand` produce
+  `p1/_r<hex>`; `guy/h/finger` and `guy/torso` produce `guy/_r<hex>`. Parents that share no
+  path (different boxes, or one unboxed) produce **no** prefix. That is a decision rather
+  than a gap: such an agent genuinely has no unambiguous owner, and reporting ambiguity by
+  saying nothing beats resolving it by guessing. Cases 23 and 24 pin the two halves.
+  The rule is decidable, not heuristic — the rewriter is already holding both parent ids
+  at the moment it mints — and it exists because a host's job with a normal form is usually
+  to **draw** it, which means answering "which entity does this agent belong to" for every
+  agent in it (Void Unity, 2026-08-29). **The digest is untouched**: the prefix names the
+  agent and never enters the key. And in a **flat** net no id contains `/`, so the prefix is
+  always empty and every id is byte-for-byte what it was before composition existed — which
+  is how this could ship one release after the digest was frozen.
+
+  **`patch` is the one exception, and it creates nothing.** A `patch` rule hands back an
+  existing agent with new content rather than minting one, so the survivor keeps its own
+  id — including its `<rune>/` provenance. This paragraph governs agents a rule *creates*;
+  there is no conflict, and it is the honest reading: same glyph, same arity, same wiring,
+  same tags, so it is the same agent. It stays schedule-independent because it is an
+  **input** id.
+
+  **Case 16 pins the minter alone** — key in, id out, with no reduction around it — so
+  an implementer can debug the hash without debugging the rewriter. Its vectors separate
+  the parts that fail independently: that each component is sorted, that the two
+  components are *not* interchangeable with each other, that the ordinal is 1-based and
+  part of the key, and the `_r<12 hex>` rendering. Get case 16 green first; case 15 then
+  tests the thing it is for, which is the ids' independence from the schedule.
 
 ## 3. Reduction
 
@@ -122,6 +208,12 @@ Rules arrive as data, in the `config.transform.reduce` form of the state documen
 
 ## 4. The mantle adapter and the canonical form
 
+- **`/` is reserved in an agent id** and the adapter refuses a rune whose name contains
+  one (`adapter-ports`, case 22). A spliced agent is named `<rune>/<agent>` (§7), and both
+  the box path and the derived-id owner prefix (§2) read structure back out of an id — so
+  a rune literally named `a/b` in a **flat** mantle would otherwise read as an agent
+  belonging to a box called `a`. Refusing the input is the standing preference over
+  guessing at it. The reservation holds in every mantle, not only composed ones.
 - `to_net(mantle, signatures)`: each rune becomes an agent (`id` = spirit name,
   `glyph`, `content`, `tags`); each `layout.edges` entry becomes a wire, reading
   port indices from `relation` as `"i:j"` (from-port i ↔ to-port j). An edge whose
@@ -164,6 +256,38 @@ Error kinds are abstract (each implementation maps them to its own error type):
 `adapter-ports` (§4 strict adapter), `locality` (§3, strict mode only),
 `termination-guard` (§3).
 
+A case may also carry **`mantles`** — a list of whole mantles the case's `input` can box
+(§7). A rune whose glyph is declared in `spec.boxes` is spliced in as the named mantle's
+net; with no `boxes` the key is ignored and the adapter is the flat one.
+
+Error kinds added by §7: `box-interface` (the declared interface is not a permutation of
+the sub-net's free ports), `box-mantle` (a box names a mantle the case does not supply),
+`box-cycle` (a mantle transitively contains itself).
+
+**Carry the kind in a field, not in the message.** A runner that recovers the kind by
+searching a diagnostic for keywords silently reclassifies a case the moment a diagnostic is
+reworded, and a case that changes kind without changing behaviour is precisely what a
+conformance suite exists to prevent. Ours did that until 2026-08-30 and it had already
+produced one live inconsistency: a malformed edge naming a non-existent endpoint answered
+`adapter-ports` through the flat adapter and `box-interface` through the composing one,
+depending only on whether some *other* rune in the mantle happened to be a box. Both are
+`adapter-ports` — it is a malformed edge either way — and **case 21** now locks both paths.
+(Both found by Void Unity, 2026-08-29, by porting this runner rather than reading it.)
+
+In a minter case, **`ordinal` is 1-based**: it counts minter calls within one rewrite, so
+`0` is a malformed vector rather than "no id", and a runner MUST say so rather than fall
+out of its loop.
+
+A case carrying a **`minter`** key instead of `spec`/`input` is a minter-vector case
+(§2): no net, no reduction, just the id function, one vector per entry and one id per
+vector in the same order.
+
+```jsonc
+{"case": "16-minter",
+ "minter": [{"glyphs": ["con","dup"], "parents": ["a","b"], "ordinal": 1}, ...],
+ "expect": {"ids": ["_r2506cbce0c40", ...]}}
+```
+
 New cases: author `spec`/`input`, run `python run.py --regen`, **eyeball the
 generated `expect` against the semantics above**, commit. The reference is the
 oracle, but a golden file is only as good as its review.
@@ -178,8 +302,109 @@ still pass. A case with `"pin_ids": true` opts into the stronger check — the r
 **same literal ids**, not merely the same canonical form.
 
 Use it where reproducible identity is the point (case 15) and leave it off elsewhere, so
-the rest of the suite keeps testing semantics rather than a naming scheme. The pinned
-`_r<hex>` strings in case 15 are the *reference's* rendering; an implementation with a
-different hash will differ there and should re-`--regen` that one case against itself
-while still checking the cross-schedule property, which is the part that must hold
-everywhere.
+the rest of the suite keeps testing semantics rather than a naming scheme.
+
+The pinned `_r<hex>` strings in case 15 are **normative** as of 2026-08-29, not merely
+the reference's rendering: §2 now names the digest, so an implementation that differs
+there is wrong rather than differently-flavoured, and the fix is to match the digest,
+not to re-`--regen` the case against itself. (That re-`--regen` advice stood here until
+2026-08-29, and Void Unity named a second reason it was bad: a host that **vendors**
+this directory cannot write to it, because a vendored copy edited locally stops showing
+drift, which is the whole reason to vendor one. Re-deriving the expectation in memory
+and reporting the difference every run — what they did instead — was the right call
+under the old text.)
+
+If your ids differ, run **case 16** first: it isolates the minter from the rewriter.
+
+---
+
+## 7. Composition — a mantle as a rune inside another mantle
+
+A net with *n* free ports **is** an agent of arity *n*. That is Lafont's reading, and it is
+the whole content of "a player is a mantle of body parts and clothing, and also one rune in
+the world." So this needs no new primitive: the adapter notices that a rune's glyph names a
+mantle and **splices** that mantle's net in at the rune's ports.
+
+```jsonc
+{"signatures": {"body": 1, "cloth": 2, "sound": 0},
+ "boxes": {"player": {"mantle": "player",
+                      "interface": ["skin:0", "shirt:0", "voice:0", "shirt:2"]}},
+ "rules": [...]}
+```
+
+- A **box** is a glyph. A rune of that glyph *is* the named mantle; there is no other
+  marker on the rune, and nothing is stored in the state document that has to be kept
+  true — a box is a fact about a rule set, not about a rune.
+- `interface` lists the sub-net's free ports as `"<agent>:<port>"`, in the order the
+  parent addresses them: entry 0 becomes the box's **principal**, the rest its
+  auxiliaries, so the box's arity is `len(interface) - 1`. When boxes nest, an outer
+  interface names ports of the *composed* sub-net, spliced ids included
+  (`"h/finger:0"`).
+- The declaration **orders the boundary and may not redefine it**. It MUST be a
+  permutation of the free ports the sub-net actually has — every free port declared,
+  no others, no repeats — or the composition fails with `box-interface`. The free ports
+  *are* the interface; the list exists only because the parent addresses them by index
+  and a set has no indices. For the same reason a `signatures` entry that contradicts a
+  box's computed arity is an error rather than a tiebreak: one fact, one source.
+  `interface` may be omitted, giving canonical (sorted) order — deterministic, and
+  arbitrary, so declare it whenever the parent's edges care which port is which.
+- Spliced agent ids are namespaced **`<rune>/<agent>`**, and this is normative (case 17
+  pins it with `pin_ids`). By the *rune*, not the mantle: the rune is the instance, so
+  `p1` and `p2` of the same mantle are two independent copies rather than one shared net.
+- A mantle that transitively contains itself is `box-cycle`. A mantle with no free ports
+  has no interface and cannot be a rune (arity 0 leaves nothing to wire).
+- **With no boxes declared, composition is exactly `to_net`** — same net, same errors.
+  Every case in this suite that predates §7 runs down the identical path.
+
+### 7.1 Why this gives encapsulation and interaction at once
+
+They look like opposite requirements, and are the same one:
+
+- **The outside cannot reach in.** The parent can address only the interface; every other
+  inner port is already wired inside. Linearity — every port in at most one wire — does
+  the work. An inner `silk` and an outer `silk` form no active pair because there is no
+  wire between them and no way to add one. This is not a scope check that a future rule
+  could forget to apply; it is a property of the net, so it holds under every rule set
+  anyone writes later.
+- **The outside can still affect the inside**, through the interface, because a wire to
+  interface port *k* is a wire to a real inner port. An equipped item meets the garment it
+  is wired to, the rule fires, and the effect propagates inward by ordinary reduction.
+  Case 20 pins exactly this: an amulet outside the player annihilates with the shirt
+  inside it, leaving the amulet's chain wired to the player's own skin — an outside agent
+  rewrote the mantle's interior, using nothing but a wire to a free port.
+
+**One consequence worth stating plainly, because it is easy to design around wrongly:** an
+active pair is *principal*-to-principal, so a mantle can only be **interacted with** from
+outside through inner principals that are free. An interface of nothing but aux ports
+composes fine and never reacts — it is a net that can be attached to and cannot respond.
+"What this mantle exposes for interaction" is exactly "which of its inner principals are
+free," and that is a modelling decision the sub-mantle makes by how it wires itself.
+
+### 7.2 Provenance, and what composition still does not do
+
+**Every agent in a composed normal form can be attributed, or is honestly unattributable.**
+Three cases, and the first two are the common ones:
+
+| agent | its box |
+|---|---|
+| a **survivor** | its own `<rune>/` prefix, unchanged |
+| a **`patch` survivor** | likewise — `patch` keeps the id, so a content rewrite costs no provenance |
+| a **rule-created** agent | the longest common box path of its two parents (§2), or none when they share none |
+
+That covers the case a host actually has: an effect fires *inside* one character far more
+often than *between* two, and the between case has no honest answer anyway.
+
+**What is still not done — and one of these is deliberate rather than pending:**
+
+- **`from_net` does not re-box a normal form into sub-mantles**, and will not on request:
+  after a rewrite spanning a boundary there is often no fact of the matter about which side
+  a new agent belongs to, and a host handed a confident wrong answer is worse off than one
+  handed none. (Void Unity, 2026-08-29, asked us *not* to build this, and separated it
+  cleanly from the provenance ask above — which is why the provenance ask got built.) A
+  host that wants a sub-mantle's own state back should reduce that mantle by itself, which
+  is exact and cheap.
+- **The rule set is still three rules.** `patch` closed the content gap for the shape it
+  covers — one pair, one survivor, a content patch — and it is deliberately weaker than an
+  arbitrary rewrite so the one-rule-per-unordered-pair confluence guard still means
+  something. A rule that needs to *restructure* on contact (spawn agents, rewire beyond the
+  redex boundary conditionally) is still a code-registered `expand`.

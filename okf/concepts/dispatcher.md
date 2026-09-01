@@ -4,7 +4,7 @@ title: Dispatcher
 description: The one command entry point the CLI, GUI, and script runner all call; every mutation is undoable and dirty-tracked.
 resource: core/src/dispatch/dispatch.c
 tags: [status:current, audience:library, audience:dev, confidence:asserted, foundation]
-timestamp: 2026-08-25T00:00:00Z
+timestamp: 2026-08-28T00:00:00Z
 ---
 
 The **dispatcher** is Void Core's single surface: one router that every face (CLI,
@@ -49,6 +49,44 @@ unsynchronized undo/redo stacks): hosts serialize calls per instance or confine 
 to one thread; distinct instances are independent. Callbacks (log sink, effect
 handler) run synchronously *inside* the dispatch and must not re-enter. SPEC §6.
 
+# Pure vs effectful, and the command journal
+
+**0.2.8.** The design note that parked reified commands set one condition on
+building them: *resolve the pure-vs-effectful distinction first* — "probably the
+single most important distinction to get right"
+([command architecture](/design/command-architecture.md) §2). SPEC §6.2 resolves
+it and then reifies.
+
+> A command is **effectful** iff its verb can reach the host through the effect
+> handler. The complete list is `save`, `deploy`, `build`, `preview`, `effect`;
+> every other verb is **pure**.
+
+The list is complete *because* the core does no I/O — `vc_set_effect_handler` is
+the only way out. And the classification is **static**: `save` is effectful on a
+host that registered no handler, even though nothing left the process. A
+host-dependent answer would let one command be a recordable change on one peer and
+not on another, which is the divergence the distinction exists to prevent.
+Observation may **upgrade** a compound command (a `batch` containing a `deploy` is
+effectful), never downgrade one.
+
+The **journal** is that classification made useful: every successful mutating
+command reified as `{seq, command, verb, who, pure, slice, minted}` — read with
+the `journal` verb or `vc_export_journal`, **off by default**. Undo is untouched
+and stays memento-based, because the two answer different questions and want
+different structures: the undo stack is *bounded* and drops its oldest frame,
+and `undo`/`redo` *consume* frames. A record that silently forgets, or that loses
+an entry when a change is taken back, is not a record.
+
+Two fields carry the weight. `command` is the **canonical** line, so `rm x` and
+`rune rm x` never record as two different changes. And `minted` is the ids that
+exist after the command and did not before — which is what makes an entry worth
+more than its own text: ids come from the PRNG, so replaying the *string*
+produces different state and replaying the *entry* does not.
+
+Effectful commands are recorded too, even though a replay consumer must skip
+them. Otherwise `pure` would be a constant `true`, and nothing could distinguish
+*"nothing effectful happened"* from *"a deploy happened and was not recorded."*
+
 # POSIX surface
 
 The command surface speaks terminal, so agents can lean on their shell priors:
@@ -65,6 +103,15 @@ both the [C core](/components/c-core.md) (`args.c`) and the JS oracle.
 
 - Every mutating verb pushes an undo frame before mutating; redo clears on new
   mutation; the undo stack is bounded.
+- **Undo is the host's switch** (`vc_set_undo`, `vc_set_undo_depth`; 0.2.9), on by
+  default, mirroring the journal's. The frame is a copy of the whole undoable
+  slice, which is proportional to a *document* for a host that keeps a design in
+  `mantles` and proportional to a *world* for one whose runes are live instances
+  — and which of those `mantles` holds is a decision only the host has made. With
+  undo off no frame is taken, and `undo`/`redo` fail *saying they are disabled*
+  rather than reporting an empty stack, because a script running inside such a
+  host did not strike that bargain. `batch` stays atomic either way: its rollback
+  is its own saved copy, not the undo stack.
 - Dirty-tracking compares against a `_baseline` snapshot (`status`/`diff`/`revert`).
 - `batch` applies a list of commands **atomically** (rollback on any failure) as **one
   undo frame** — which is how the seam gives a multi-write transform pass
@@ -87,6 +134,9 @@ through `setjson`/`tag`, so they remain undoable. See `SPEC.md` §7 "Transformat
 
 # Status
 
-`current`. Implemented in the [C core](/components/c-core.md); the transformation verbs
+`current`. Implemented in the [C core](/components/c-core.md); the §6.2 journal is
+`core/src/dispatch/journal.c` (conformance case 14, `bindings/python/journal_test.py`),
+undo control is `core/src/dispatch/undo.c` (`bindings/python/undo_control_test.py`).
+The transformation verbs
 (`scry`/`temper`/`materialize`/`reduce`) are built at the Python seam, configurable by code
 or by **data** (`config.transform`, `voidcore.spec`). See `SPEC.md` §6–§7. Design: [command architecture](/design/command-architecture.md).

@@ -24,7 +24,16 @@ from voidcore import VoidCore  # noqa: E402
 
 
 def run_case(path: str, dll: str | None = None) -> tuple[bool, dict]:
-    src = open(path, encoding="utf-8").read()
+    # Read the case as BYTES and decode without newline translation. Python's
+    # text mode rewrites \r\n to \n before the library ever sees it, which meant
+    # this suite could not observe how the core treats a CR by construction — and
+    # a suite that normalizes its own inputs cannot test what a host is handed.
+    # Void Unity found the gap from the other side (2026-08-27): its C# runner
+    # read 14-journal.vs, which was committed with CRLF, exactly as stored and
+    # watched it fail while this runner called it green. Cases now arrive here
+    # byte-for-byte, so 15-crlf.vs — deliberately stored with CRLF, see
+    # .gitattributes — actually pins the answer §8 gives.
+    src = open(path, "rb").read().decode("utf-8")
     name = os.path.splitext(os.path.basename(path))[0]
     vc = VoidCore(state={"version": 1, "scripts": {"case": src}}, dll_path=dll)
     try:

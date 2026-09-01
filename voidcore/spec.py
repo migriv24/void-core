@@ -30,7 +30,7 @@ stays code):
 from __future__ import annotations
 
 from projection import Selector
-from reduce import Reducer, annihilate, commute
+from reduce import Reducer, annihilate, commute, patch
 from temper import (
     Temper, dedupe, default_content, default_tag, member_or_default,
     normalize_tags, single_tag,
@@ -86,7 +86,7 @@ def temper_rule_names() -> list[str]:
 
 # Reduce rule kinds expressible as data. `expand` needs a custom build fn, so it stays
 # code-registered (not data) — these are the two confluent interaction-combinator rules.
-_REDUCE_RULES = {"annihilate": annihilate, "commute": commute}
+_REDUCE_RULES = {"annihilate": annihilate, "commute": commute, "patch": patch}
 
 
 def reducer_from_spec(spec: dict) -> tuple[Reducer, dict]:
@@ -119,12 +119,89 @@ def reducer_from_spec(spec: dict) -> tuple[Reducer, dict]:
         if "swap" in item and kind != "annihilate":
             raise ValueError(f"reducer spec rule [{i}] ({kind}): `swap` only applies "
                              f"to annihilate")
-        fn = (annihilate(swap=bool(item.get("swap", False)))
-              if kind == "annihilate" else commute())
+        for k in ("keep", "set", "copy"):
+            if k in item and kind != "patch":
+                raise ValueError(f"reducer spec rule [{i}] ({kind}): `{k}` only applies "
+                                 f"to patch")
+        if kind == "patch":
+            fn = _patch_from_item(i, glyphs, item)
+        elif kind == "annihilate":
+            fn = annihilate(swap=bool(item.get("swap", False)))
+        else:
+            fn = commute()
         reducer.rule(glyphs[0], glyphs[1], fn)
     return reducer, signatures
+
+
+def _patch_from_item(i: int, glyphs, item: dict):
+    """Compile one `patch` rule, validating at COMPILE time what would otherwise be a
+    surprise at fire time — which matters more here than for the structural rules, because
+    a patch that names the wrong survivor still reduces, just wrongly."""
+    ga, gb = str(glyphs[0]), str(glyphs[1])
+    if ga == gb:
+        raise ValueError(
+            f"reducer spec rule [{i}] (patch): needs distinct glyphs, got {ga!r} twice. "
+            f"On an unordered same-glyph pair there is no non-arbitrary answer to which "
+            f"side survives, and an arbitrary tiebreak is schedule-dependence.")
+    keep = item.get("keep")
+    if keep not in (ga, gb):
+        raise ValueError(
+            f"reducer spec rule [{i}] (patch): `keep` must name one of the pair's glyphs "
+            f"({ga!r} or {gb!r}), got {keep!r}")
+    set_fields, copy_fields = item.get("set"), item.get("copy")
+    for name, m in (("set", set_fields), ("copy", copy_fields)):
+        if m is not None and not isinstance(m, dict):
+            raise ValueError(f"reducer spec rule [{i}] (patch): `{name}` must be an object")
+    if copy_fields and not all(isinstance(v, str) for v in copy_fields.values()):
+        raise ValueError(f"reducer spec rule [{i}] (patch): `copy` values name fields on "
+                         f"the consumed agent, so each must be a string")
+    if not set_fields and not copy_fields:
+        raise ValueError(
+            f"reducer spec rule [{i}] (patch): writes nothing — give it `set`, `copy`, or "
+            f"both. A pair that meets and changes no content is `annihilate`.")
+    return patch(keep=keep, set_fields=set_fields, copy_fields=copy_fields)
 
 
 def reduce_rule_names() -> list[str]:
     """The reduce rule kinds expressible as data (for editors / validation / docs)."""
     return sorted(_REDUCE_RULES)
+
+
+def boxes_from_spec(spec: dict) -> dict:
+    """Compile the `boxes` half of a reducer spec — the glyphs that mean "a rune of this
+    glyph *is* that mantle", so the adapter splices the mantle's net in at the rune's
+    ports (`reduce/box.py`).
+
+        {"signatures": {"dye": 1, "cloth": 2},
+         "boxes": {"player": {"mantle": "player",
+                              "interface": ["skin:0", "shirt:1", "voice:0"]}},
+         "rules": [...]}
+
+    `interface` orders the sub-net's free ports; entry 0 becomes the box's principal.
+    It is optional (canonical order without it) and, when given, must be a permutation of
+    the free ports the sub-net actually has — checked at composition time, since it is a
+    fact about the mantle rather than about this spec. Returns `{glyph: Box}`; an absent
+    or empty `boxes` gives `{}`, which is the flat adapter unchanged.
+
+    Kept separate from `reducer_from_spec` rather than added to its return tuple: hosts
+    (and `conformance/reduce/run.py`) already unpack that as `(reducer, signatures)`, and
+    boxing is opt-in enough not to be worth breaking every caller over."""
+    from box import Box
+    if not isinstance(spec, dict):
+        raise ValueError("reducer spec must be an object")
+    out = {}
+    for glyph, item in (spec.get("boxes") or {}).items():
+        if not isinstance(item, dict):
+            raise ValueError(f"box {glyph!r}: must be an object "
+                             f"{{\"mantle\": ..., \"interface\": [...]}}")
+        mantle = item.get("mantle")
+        if not isinstance(mantle, str) or not mantle:
+            raise ValueError(f"box {glyph!r}: `mantle` must be a non-empty string")
+        iface = item.get("interface")
+        if iface is not None:
+            if not isinstance(iface, (list, tuple)) or not all(isinstance(s, str) for s in iface):
+                raise ValueError(f"box {glyph!r}: `interface` must be a list of "
+                                 f"\"<agent>:<port>\" strings")
+            iface = tuple(iface)
+        out[str(glyph)] = Box(mantle=mantle, interface=iface)
+    return out

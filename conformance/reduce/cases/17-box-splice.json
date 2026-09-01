@@ -1,0 +1,190 @@
+{
+  "case": "17-box-splice",
+  "description": "A mantle appearing inside another mantle as one rune (README §7). The `player` mantle is a shirt worn on skin plus a voice; a rune of glyph `player` in the world IS that mantle, spliced in at its ports. What this case pins is the splice itself: the sub-net's agents enter the composed net namespaced by the RUNE (`p1/skin`, not `player/skin`, so two players in one world are two independent copies), the sub-net's own wiring survives, and an edge from the parent addressing box port k lands on the k-th port of the declared interface. Here the world wires a door to box port 0, which is `skin:0` — so after composition the door is wired to `p1/skin`, an agent the world never named. Nothing reduces: there are no rules, so the expectation is purely the composed shape. `pin_ids` is on so the NAMESPACING is pinned too, not just the shape: the canonical form is id-blind by design, so without it an implementation could splice correctly and name the agents anything. The ids are normative here — `<rune>/<agent>`, composing left to right when boxes nest.",
+  "spec": {
+    "signatures": {
+      "body": 1,
+      "cloth": 2,
+      "sound": 0
+    },
+    "boxes": {
+      "player": {
+        "mantle": "player",
+        "interface": [
+          "skin:0",
+          "shirt:0",
+          "voice:0",
+          "shirt:2"
+        ]
+      }
+    },
+    "rules": []
+  },
+  "mantles": [
+    {
+      "name": "player",
+      "runes": [
+        {
+          "spirit": {
+            "id": "r_skin",
+            "name": "skin"
+          },
+          "glyph": "body",
+          "content": {
+            "tone": "pale"
+          },
+          "tags": []
+        },
+        {
+          "spirit": {
+            "id": "r_shirt",
+            "name": "shirt"
+          },
+          "glyph": "cloth",
+          "content": {
+            "colour": "white"
+          },
+          "tags": [
+            "worn"
+          ]
+        },
+        {
+          "spirit": {
+            "id": "r_voice",
+            "name": "voice"
+          },
+          "glyph": "sound",
+          "content": {
+            "pitch": "mid"
+          },
+          "tags": []
+        }
+      ],
+      "layout": {
+        "edges": [
+          {
+            "from": "shirt",
+            "to": "skin",
+            "relation": "1:1"
+          }
+        ]
+      }
+    }
+  ],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "r_p1",
+          "name": "p1"
+        },
+        "glyph": "player",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "r_door",
+          "name": "door"
+        },
+        "glyph": "body",
+        "content": {
+          "kind": "oak"
+        },
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "p1",
+          "to": "door",
+          "relation": "0:0"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "body",
+          {
+            "kind": "oak"
+          },
+          []
+        ],
+        [
+          "body",
+          {
+            "tone": "pale"
+          },
+          []
+        ],
+        [
+          "cloth",
+          {
+            "colour": "white"
+          },
+          [
+            "worn"
+          ]
+        ],
+        [
+          "sound",
+          {
+            "pitch": "mid"
+          },
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "body",
+            0
+          ],
+          [
+            "body",
+            0
+          ]
+        ],
+        [
+          [
+            "body",
+            1
+          ],
+          [
+            "cloth",
+            1
+          ]
+        ]
+      ],
+      "free": [
+        [
+          "body",
+          1
+        ],
+        [
+          "cloth",
+          0
+        ],
+        [
+          "cloth",
+          2
+        ],
+        [
+          "sound",
+          0
+        ]
+      ]
+    },
+    "ids": [
+      "door",
+      "p1/shirt",
+      "p1/skin",
+      "p1/voice"
+    ]
+  },
+  "pin_ids": true
+}

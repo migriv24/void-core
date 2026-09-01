@@ -4,7 +4,7 @@ title: Python binding
 description: The ctypes binding wrapping the libvoidcore.dll C ABI; first binding target.
 resource: bindings/python/voidcore.py
 tags: [status:current, audience:dev, confidence:asserted]
-timestamp: 2026-08-25T00:00:00Z
+timestamp: 2026-08-28T00:00:00Z
 ---
 
 The first language binding for the [C core](/components/c-core.md): a thin `ctypes`
@@ -30,6 +30,24 @@ Python functions above, and `arg_quote` / `argv_split` / `transcript_split` meth
 that call the C implementation, which is how `voidcore/codec_test.py` checks the two
 against each other. The C-side three are bound **leniently**, so this binding still
 loads against a library older than 0.2.7 and says so if you reach for them.
+
+# The command journal
+
+`set_journal(bool)`, `journal()`, `journal_clear()` wrap the §6.2 record. Bound
+**leniently** like the codec, so this binding still loads against a library older
+than 0.2.8 and says so if you reach for them. `journal()` returns the parsed
+entries; a consumer building a replayable or transmissible history keeps only the
+`pure` ones.
+
+# Undo control
+
+`set_undo(bool)` and `set_undo_depth(int)` wrap the §6 switch. Bound **leniently**
+like the codec and the journal, so this binding still loads against a library
+older than 0.2.9 and says so if you reach for them. Undo is on by default; a host
+whose `mantles` holds live instances rather than a design should turn it off and
+accept that `undo` fails, which is a bargain only the host can strike.
+`bindings/python/undo_control_test.py` carries the contract *and* the benchmark
+that motivated it.
 
 # Effect handler
 

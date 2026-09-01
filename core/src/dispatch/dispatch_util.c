@@ -10,6 +10,18 @@
 
 const char *vc_facet_keys[6] = {"who", "what", "when", "where", "why", "how"};
 
+/* Resolve a mantle by name in the state document, or NULL. Mantle names are
+ * unique (`mantle new` / `mantle rename` reject a taken one), so this answers a
+ * yes/no question exactly — which is what lets `validate` tell a link endpoint
+ * that names a mantle apart from one that names nothing at all (SPEC §3.7). */
+cJSON *vc_state_find_mantle(cJSON *state, const char *name) {
+  if (!name) return NULL;
+  cJSON *mm = NULL;
+  cJSON_ArrayForEach(mm, cJSON_GetObjectItemCaseSensitive(state, "mantles"))
+    if (!strcmp(vc_mantle_name(mm), name)) return mm;
+  return NULL;
+}
+
 /* ── result builders ─────────────────────────────────────────────────────── */
 cJSON *res_make(int ok) {
   cJSON *r = cJSON_CreateObject();

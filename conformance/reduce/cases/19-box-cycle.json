@@ -1,0 +1,22 @@
+{
+  "case": "19-box-cycle",
+  "description": "A mantle that transitively contains itself is refused (`box-cycle`) rather than expanded forever. `bag` contains a rune of glyph `bagbox`, which is `bag` — so composing it would splice without end. An implementation that recurses without a chain guard hangs on this case instead of failing it, which is the point of pinning it.",
+  "spec": {
+    "signatures": {"body": 1},
+    "boxes": {"bagbox": {"mantle": "bag"}},
+    "rules": []
+  },
+  "mantles": [
+    {"name": "bag",
+     "runes": [
+       {"spirit": {"id": "r_inner", "name": "inner"}, "glyph": "bagbox", "content": {}, "tags": []},
+       {"spirit": {"id": "r_x", "name": "x"}, "glyph": "body", "content": {}, "tags": []}
+     ],
+     "layout": {"edges": []}}
+  ],
+  "input": {
+    "runes": [{"spirit": {"id": "r_b", "name": "b"}, "glyph": "bagbox", "content": {}, "tags": []}],
+    "layout": {"edges": []}
+  },
+  "expect": {"error": "box-cycle"}
+}

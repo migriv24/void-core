@@ -1,0 +1,210 @@
+{
+  "case": "24-cross-box-no-owner",
+  "description": "The complement of case 23: when a rule's two parents come from DIFFERENT boxes, the agents it creates get no owner prefix. Here a `con` inside `p1` meets a `dup` inside `p2` — their principals are wired through both interfaces — and commuting them produces copies that belong to neither character. The prefix rule is longest-common-box-path, and these two share none, so it is empty. This is a decision, not an omission: the agent genuinely has no unambiguous owner, and a host handed a confident wrong answer is worse off than one handed none. The same choice `validate` makes about a link endpoint that resolves to a rune in another mantle. `pin_ids` is what pins it, since the canonical form is id-blind.",
+  "spec": {
+    "signatures": {
+      "con": 2,
+      "dup": 2
+    },
+    "boxes": {
+      "conbox": {
+        "mantle": "ckit",
+        "interface": [
+          "c:0",
+          "c:1",
+          "c:2"
+        ]
+      },
+      "dupbox": {
+        "mantle": "dkit",
+        "interface": [
+          "d:0",
+          "d:1",
+          "d:2"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "con",
+          "dup"
+        ],
+        "rule": "commute"
+      }
+    ]
+  },
+  "mantles": [
+    {
+      "name": "ckit",
+      "runes": [
+        {
+          "spirit": {
+            "id": "r_c",
+            "name": "c"
+          },
+          "glyph": "con",
+          "content": {
+            "k": "c"
+          },
+          "tags": []
+        }
+      ],
+      "layout": {
+        "edges": []
+      }
+    },
+    {
+      "name": "dkit",
+      "runes": [
+        {
+          "spirit": {
+            "id": "r_d",
+            "name": "d"
+          },
+          "glyph": "dup",
+          "content": {
+            "k": "d"
+          },
+          "tags": []
+        }
+      ],
+      "layout": {
+        "edges": []
+      }
+    }
+  ],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "r_p1",
+          "name": "p1"
+        },
+        "glyph": "conbox",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "r_p2",
+          "name": "p2"
+        },
+        "glyph": "dupbox",
+        "content": {},
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "p1",
+          "to": "p2",
+          "relation": "0:0"
+        }
+      ]
+    }
+  },
+  "pin_ids": true,
+  "schedules": 4,
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "con",
+          {
+            "k": "c"
+          },
+          []
+        ],
+        [
+          "con",
+          {
+            "k": "c"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "d"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "d"
+          },
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            2
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "dup",
+            2
+          ]
+        ]
+      ],
+      "free": [
+        [
+          "con",
+          0
+        ],
+        [
+          "con",
+          0
+        ],
+        [
+          "dup",
+          0
+        ],
+        [
+          "dup",
+          0
+        ]
+      ]
+    },
+    "ids": [
+      "_r3aabe6ee4d24",
+      "_r3c2dad2551a5",
+      "_r4511dc6f293b",
+      "_rb660d9adb058"
+    ]
+  }
+}

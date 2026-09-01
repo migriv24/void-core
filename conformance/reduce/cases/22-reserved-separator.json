@@ -1,0 +1,12 @@
+{
+  "case": "22-reserved-separator",
+  "description": "`/` is reserved in a reduction agent id, and the adapter refuses a rune whose name contains one (`adapter-ports`). The reservation is not cosmetic: a spliced agent is named `<rune>/<agent>` (§7), and both `box_path` and the derived-id owner prefix (§2) read structure back out of an id — so a rune literally named `a/b` in a FLAT mantle would otherwise read as an agent belonging to a box called `a`. Refusing the input is the standing preference over guessing at it. This is a flat case with no boxes at all, which is the point: the reservation holds everywhere, not only where composition happens.",
+  "spec": {"signatures": {"body": 1}, "rules": []},
+  "input": {
+    "runes": [
+      {"spirit": {"id": "r_ab", "name": "a/b"}, "glyph": "body", "content": {}, "tags": []}
+    ],
+    "layout": {"edges": []}
+  },
+  "expect": {"error": "adapter-ports"}
+}

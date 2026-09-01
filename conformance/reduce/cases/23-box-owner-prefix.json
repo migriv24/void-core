@@ -1,0 +1,284 @@
+{
+  "case": "23-box-owner-prefix",
+  "description": "A rule-created agent inherits the longest common box path of its two parents (§2), so a host can answer 'which entity does this agent belong to' for a derived agent and not only for a survivor. Two players are boxed into one world. Inside `p1`, a `con` and a `dup` meet and commute — a firing wholly inside one character, which is the common case in a game — and every copy it creates is named `p1/_r<hex>`. `p2` reduces the same way and its copies are `p2/_r<hex>`: same rule, same shapes, different owners, no collision. `pin_ids` is what pins this; the canonical form is id-blind and would pass either way. The complementary half is case 24's: parents from different boxes share no path and get no prefix, because ambiguity is reported by saying nothing rather than resolved by guessing.",
+  "spec": {
+    "signatures": {
+      "con": 2,
+      "dup": 2,
+      "leaf": 0
+    },
+    "boxes": {
+      "player": {
+        "mantle": "kit",
+        "interface": [
+          "c:1",
+          "c:2",
+          "d:1",
+          "d:2"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "con",
+          "dup"
+        ],
+        "rule": "commute"
+      }
+    ]
+  },
+  "mantles": [
+    {
+      "name": "kit",
+      "runes": [
+        {
+          "spirit": {
+            "id": "r_c",
+            "name": "c"
+          },
+          "glyph": "con",
+          "content": {
+            "k": "c"
+          },
+          "tags": []
+        },
+        {
+          "spirit": {
+            "id": "r_d",
+            "name": "d"
+          },
+          "glyph": "dup",
+          "content": {
+            "k": "d"
+          },
+          "tags": []
+        }
+      ],
+      "layout": {
+        "edges": [
+          {
+            "from": "c",
+            "to": "d",
+            "relation": "0:0"
+          }
+        ]
+      }
+    }
+  ],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "r_p1",
+          "name": "p1"
+        },
+        "glyph": "player",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "r_p2",
+          "name": "p2"
+        },
+        "glyph": "player",
+        "content": {},
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": []
+    }
+  },
+  "pin_ids": true,
+  "schedules": 8,
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "con",
+          {
+            "k": "c"
+          },
+          []
+        ],
+        [
+          "con",
+          {
+            "k": "c"
+          },
+          []
+        ],
+        [
+          "con",
+          {
+            "k": "c"
+          },
+          []
+        ],
+        [
+          "con",
+          {
+            "k": "c"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "d"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "d"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "d"
+          },
+          []
+        ],
+        [
+          "dup",
+          {
+            "k": "d"
+          },
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            2
+          ]
+        ],
+        [
+          [
+            "con",
+            1
+          ],
+          [
+            "dup",
+            2
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "dup",
+            1
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "dup",
+            2
+          ]
+        ],
+        [
+          [
+            "con",
+            2
+          ],
+          [
+            "dup",
+            2
+          ]
+        ]
+      ],
+      "free": [
+        [
+          "con",
+          0
+        ],
+        [
+          "con",
+          0
+        ],
+        [
+          "con",
+          0
+        ],
+        [
+          "con",
+          0
+        ],
+        [
+          "dup",
+          0
+        ],
+        [
+          "dup",
+          0
+        ],
+        [
+          "dup",
+          0
+        ],
+        [
+          "dup",
+          0
+        ]
+      ]
+    },
+    "ids": [
+      "p1/_r23f975f653ae",
+      "p1/_r5af57a724018",
+      "p1/_rd0f26e985aa0",
+      "p1/_rd67ffc8eed4d",
+      "p2/_r0182e25689a6",
+      "p2/_r0dc0a85a61ba",
+      "p2/_r2722dc487f35",
+      "p2/_rd5776fd83a23"
+    ]
+  }
+}

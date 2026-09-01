@@ -1,0 +1,118 @@
+{
+  "case": "16-minter",
+  "description": "The fresh-id minter alone, with no reduction around it (README.md §2). Case 15 pins the derived-id PROPERTY through a rewrite, which is the right test but the wrong debugger: an implementation whose ids come out different there cannot tell a wrong digest from a wrong rule, a wrong ordinal order, or a wrong pair ordering. These vectors are key-in / id-out. Each entry names the two redex glyphs, the two parent ids, and the 1-based ordinal within that rewrite; the expectation is the id. The vectors are chosen to pin the parts an implementer can get wrong independently: both components are sorted, so swapping the glyphs or swapping the parents changes nothing (vectors 1-3 are the same id); the two sorted components are NOT interchangeable with each other, so a flat sort of all four strings is wrong (vector 4 differs from vector 1 despite the same multiset); the ordinal is part of the key and 1-based (vectors 5-6); the separator is US (U+001F), so a key built with any other joiner fails everything; and the rendering is `_r` + the first 12 lowercase hex digits of the SHA-256, i.e. the first 6 bytes of the digest, big-endian as hex is written.",
+  "minter": [
+    {
+      "glyphs": [
+        "con",
+        "dup"
+      ],
+      "parents": [
+        "a",
+        "b"
+      ],
+      "ordinal": 1
+    },
+    {
+      "glyphs": [
+        "dup",
+        "con"
+      ],
+      "parents": [
+        "a",
+        "b"
+      ],
+      "ordinal": 1
+    },
+    {
+      "glyphs": [
+        "con",
+        "dup"
+      ],
+      "parents": [
+        "b",
+        "a"
+      ],
+      "ordinal": 1
+    },
+    {
+      "glyphs": [
+        "a",
+        "b"
+      ],
+      "parents": [
+        "con",
+        "dup"
+      ],
+      "ordinal": 1
+    },
+    {
+      "glyphs": [
+        "con",
+        "dup"
+      ],
+      "parents": [
+        "a",
+        "b"
+      ],
+      "ordinal": 2
+    },
+    {
+      "glyphs": [
+        "con",
+        "dup"
+      ],
+      "parents": [
+        "a",
+        "b"
+      ],
+      "ordinal": 12
+    },
+    {
+      "glyphs": [
+        "con",
+        "con"
+      ],
+      "parents": [
+        "x",
+        "x"
+      ],
+      "ordinal": 1
+    },
+    {
+      "glyphs": [
+        "",
+        ""
+      ],
+      "parents": [
+        "",
+        ""
+      ],
+      "ordinal": 1
+    },
+    {
+      "glyphs": [
+        "γ",
+        "δ"
+      ],
+      "parents": [
+        "árbol",
+        "z"
+      ],
+      "ordinal": 3
+    }
+  ],
+  "expect": {
+    "ids": [
+      "_r2506cbce0c40",
+      "_r2506cbce0c40",
+      "_r2506cbce0c40",
+      "_r9b84eeb6d5ab",
+      "_r71e6c95910c6",
+      "_ra7123480c151",
+      "_r4f869e453514",
+      "_r69b4a8aef58f",
+      "_rf49d9a40d73e"
+    ]
+  }
+}

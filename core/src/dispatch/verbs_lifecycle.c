@@ -17,7 +17,12 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
     if (n < 1) n = 1;
     int done = vc_undo(m, n);
     if (done == 0) {
-      res = res_fail("nothing to undo");
+      /* Distinguish "no frames" from "no frames ever" — a host that called
+       * vc_set_undo(m, 0) struck that bargain knowingly, but a script running
+       * inside it did not, and "nothing to undo" would read as a state fact. */
+      res = m->undo_on ? res_fail("nothing to undo")
+                       : res_fail("undo is disabled on this manager "
+                                  "(vc_set_undo); nothing is being recorded");
     } else {
       res = res_make(1);
       res_line(res, "undid %d change(s)", done);
@@ -29,7 +34,9 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
     if (n < 1) n = 1;
     int done = vc_redo(m, n);
     if (done == 0) {
-      res = res_fail("nothing to redo");
+      res = m->undo_on ? res_fail("nothing to redo")
+                       : res_fail("undo is disabled on this manager "
+                                  "(vc_set_undo); nothing is being recorded");
     } else {
       res = res_make(1);
       res_line(res, "redid %d change(s)", done);
@@ -56,7 +63,9 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
       else
         res_line(res, "%d  %s", i + 1, cJSON_IsString(it) ? it->valuestring : "");
     }
-    if (total == 0) res_line(res, "(no history)");
+    if (total == 0)
+      res_line(res, m->undo_on ? "(no history)"
+                               : "(undo is disabled on this manager)");
     res_set_data(res, labels);
 
   } else if (!strcmp(v, "validate")) {
@@ -91,12 +100,25 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
       cJSON *layout = cJSON_GetObjectItemCaseSensitive(mt, "layout");
       cJSON *e = NULL;
       cJSON_ArrayForEach(e, cJSON_GetObjectItemCaseSensitive(layout, "edges")) {
-        if (!vc_mantle_find_rune(mt, gstr(e, "from"))) {
-          snprintf(b, sizeof b, "dangling edge from '%s'", gstr(e, "from"));
-          cJSON_AddItemToArray(problems, cJSON_CreateString(b));
-        }
-        if (!vc_mantle_find_rune(mt, gstr(e, "to"))) {
-          snprintf(b, sizeof b, "dangling edge to '%s'", gstr(e, "to"));
+        const char *ends[2] = {gstr(e, "from"), gstr(e, "to")};
+        const char *side[2] = {"from", "to"};
+        for (int k = 0; k < 2; k++) {
+          if (vc_mantle_find_rune(mt, ends[k])) continue;   /* resolves here: fine */
+          /* SPEC §3.7 — an unresolved endpoint has TWO causes, and they used to
+           * read identically. A DANGLE is legitimate: links tolerate
+           * not-yet-created knowledge, and a host that streams chunks in and out
+           * has edges dangle constantly with nothing wrong. A CROSS-KIND endpoint
+           * is a mistake: the name resolves, but to a MANTLE, and v1 links are
+           * rune↔rune inside one mantle. Collapsing them told a host its typo was
+           * the case it had been told to ignore (Void Unity, 2026-08-28, boxing an
+           * equipment mantle into a world mantle). Mantle names are unique in the
+           * state document, so the test is exact rather than a guess. */
+          if (vc_state_find_mantle(state, ends[k]))
+            snprintf(b, sizeof b,
+                     "cross-kind edge %s '%s': names a mantle, not a rune",
+                     side[k], ends[k]);
+          else
+            snprintf(b, sizeof b, "dangling edge %s '%s'", side[k], ends[k]);
           cJSON_AddItemToArray(problems, cJSON_CreateString(b));
         }
       }
@@ -163,6 +185,7 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
     res = res_make(1);
     if (m->effect) {
       char *st = cJSON_PrintUnformatted(state);
+      m->effect_fired = 1; /* observed holiday crossing (SPEC §6.2) */
       char *hr = m->effect("save", st, m->effect_user);
       free(st);
       if (hr) {
@@ -185,6 +208,7 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
     char *pj = cJSON_PrintUnformatted(payload);
     cJSON_Delete(payload);
     if (m->effect) {
+      m->effect_fired = 1; /* observed holiday crossing (SPEC §6.2) */
       char *hr = m->effect(v, pj, m->effect_user);
       res = res_make(1);
       vc_log(m, "INFO", v, "host effect invoked");
@@ -234,6 +258,46 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
     if (total == 0) res_line(res, "(log empty)");
     res_set_data(res, records);
 
+  } else if (!strcmp(v, "journal")) {
+    /* The §6.2 record, on the verb surface rather than only on the ABI: the core
+     * is agent-drivable through verbs, and a record an agent cannot read is a
+     * record it cannot reason about. `journal` itself is neither mutating nor
+     * effectful, so reading or toggling the record never appears in it. */
+    /* Skip flags when looking for the subcommand: capture appends `--json`
+     * (§8.1), so `journal --json` is a read, not a malformed subcommand. */
+    const char *sub = "";
+    for (int i = 1; i < a.count; i++) {
+      if (a.items[i][0] == '-' && a.items[i][1] == '-') continue;
+      sub = a.items[i];
+      break;
+    }
+    if (!strcmp(sub, "on") || !strcmp(sub, "off")) {
+      m->journal_on = !strcmp(sub, "on");
+      res = res_make(1);
+      res_line(res, "journal %s", sub);
+    } else if (!strcmp(sub, "clear")) {
+      vc_journal_clear_all(m);
+      res = res_make(1);
+      res_line(res, "journal cleared");
+    } else if (!*sub) {
+      cJSON *entries = vc_journal_json(m);
+      res = res_make(1);
+      cJSON *e = NULL;
+      cJSON_ArrayForEach(e, entries) {
+        const char *w = gstr(e, "who");
+        res_line(res, "%d %s %s%s%s",
+                 (int)cJSON_GetObjectItemCaseSensitive(e, "seq")->valuedouble,
+                 cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(e, "pure"))
+                     ? "pure" : "effectful",
+                 gstr(e, "command"), (w && *w) ? " " : "", (w && *w) ? w : "");
+      }
+      if (cJSON_GetArraySize(entries) == 0)
+        res_line(res, m->journal_on ? "(journal empty)" : "(journal off)");
+      res_set_data(res, entries);
+    } else {
+      res = res_fail("usage: journal [on|off|clear]");
+    }
+
   } else if (!strcmp(v, "effect")) {
     /* Generic host-effect call (the holiday boundary, beyond save/deploy/build/
      * preview): `effect <op> [args...]` invokes the registered handler with op +
@@ -253,6 +317,7 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
         cJSON_AddItemToArray(args, cJSON_CreateString(a.items[i]));
       char *pj = cJSON_PrintUnformatted(payload);
       cJSON_Delete(payload);
+      m->effect_fired = 1; /* observed holiday crossing (SPEC §6.2) */
       char *hr = m->effect(op, pj, m->effect_user);
       free(pj);
       res = res_make(1);

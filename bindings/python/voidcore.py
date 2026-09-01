@@ -287,6 +287,26 @@ class VoidCore:
                 continue
             fn.restype = ctypes.c_void_p
             fn.argtypes = [ctypes.c_char_p]
+        # Host-controlled undo (0.2.9+), bound leniently for the same reason.
+        self._has_undo_ctl = True
+        try:
+            L.vc_set_undo.restype = None
+            L.vc_set_undo.argtypes = [ctypes.c_void_p, ctypes.c_int]
+            L.vc_set_undo_depth.restype = None
+            L.vc_set_undo_depth.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        except AttributeError:
+            self._has_undo_ctl = False
+        # The command journal (0.2.8+), bound leniently for the same reason.
+        self._has_journal = True
+        try:
+            L.vc_set_journal.restype = None
+            L.vc_set_journal.argtypes = [ctypes.c_void_p, ctypes.c_int]
+            L.vc_export_journal.restype = ctypes.c_void_p
+            L.vc_export_journal.argtypes = [ctypes.c_void_p]
+            L.vc_journal_clear.restype = None
+            L.vc_journal_clear.argtypes = [ctypes.c_void_p]
+        except AttributeError:
+            self._has_journal = False
 
     def _take(self, ptr: int) -> str:
         """Read a heap string returned by the lib, then free it."""
@@ -309,6 +329,58 @@ class VoidCore:
     def export_state(self) -> dict[str, Any]:
         ptr = self._lib.vc_export_state(self._m)
         return json.loads(self._take(ptr))
+
+    # ── undo control (SPEC §6) ──────────────────────────────────────────────
+    def set_undo(self, enabled: bool = True) -> None:
+        """Turn undo/redo recording on or off (on by default).
+
+        Every mutating command snapshots the whole undoable slice before it runs,
+        which is cheap for a document and expensive for a world. A host whose
+        runes are live instances rather than a design should turn this off and
+        accept that `undo` fails; a host authoring a document should leave it on.
+        Turning it off also drops the frames already recorded."""
+        self._need_undo_ctl()
+        self._lib.vc_set_undo(self._m, 1 if enabled else 0)
+
+    def set_undo_depth(self, depth: int) -> None:
+        """Bound the undo/redo stacks to `depth` frames (default 200).
+
+        Lowering it trims the stacks immediately. Values below 1 clamp to 1."""
+        self._need_undo_ctl()
+        self._lib.vc_set_undo_depth(self._m, int(depth))
+
+    def _need_undo_ctl(self) -> None:
+        if not self._has_undo_ctl:
+            raise RuntimeError(
+                "this libvoidcore has no undo control (needs core >= 0.2.9)")
+
+    # ── the command journal (SPEC §6.2) ─────────────────────────────────────
+    def _need_journal(self) -> None:
+        if not self._has_journal:
+            raise RuntimeError(
+                "this libvoidcore has no command journal (needs core >= 0.2.8)")
+
+    def set_journal(self, enabled: bool = True) -> None:
+        """Record every successful mutating command as data (off by default).
+
+        Journaling never changes what a command does, so it is safe to enable at
+        any point; what it costs is one id-set walk per mutation."""
+        self._need_journal()
+        self._lib.vc_set_journal(self._m, 1 if enabled else 0)
+
+    def journal(self) -> list[dict[str, Any]]:
+        """The reified command record, oldest first (SPEC §6.2).
+
+        Each entry is {seq, command, verb, who, pure, slice, minted}. Consumers
+        building a replayable or transmissible history must keep only `pure`
+        entries — an effectful command reached the host and cannot be replayed."""
+        self._need_journal()
+        ptr = self._lib.vc_export_journal(self._m)
+        return json.loads(self._take(ptr))
+
+    def journal_clear(self) -> None:
+        self._need_journal()
+        self._lib.vc_journal_clear(self._m)
 
     def tag_match(self, expr: str, tags: list[str]) -> bool:
         """Evaluate a SPEC §5 tag/filter expression against a bag of tags.

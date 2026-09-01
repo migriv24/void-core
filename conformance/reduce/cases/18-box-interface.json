@@ -1,0 +1,23 @@
+{
+  "case": "18-box-interface",
+  "description": "An interface ORDERS a mantle's boundary and may not redefine it. The declared interface here omits two of the sub-net's four free ports, which is refused (`box-interface`) rather than silently giving the box a smaller arity. This is the rule that keeps a box from being a second source of truth about its own mantle: the free ports ARE the interface, and the declaration exists only because the parent addresses them by index and a set has no indices. The same error covers naming a port that is not free (one already wired inside — i.e. trying to expose an inner connection) and repeating one.",
+  "spec": {
+    "signatures": {"body": 1, "cloth": 2, "sound": 0},
+    "boxes": {"player": {"mantle": "player", "interface": ["skin:0", "shirt:0"]}},
+    "rules": []
+  },
+  "mantles": [
+    {"name": "player",
+     "runes": [
+       {"spirit": {"id": "r_skin", "name": "skin"}, "glyph": "body", "content": {}, "tags": []},
+       {"spirit": {"id": "r_shirt", "name": "shirt"}, "glyph": "cloth", "content": {}, "tags": []},
+       {"spirit": {"id": "r_voice", "name": "voice"}, "glyph": "sound", "content": {}, "tags": []}
+     ],
+     "layout": {"edges": [{"from": "shirt", "to": "skin", "relation": "1:1"}]}}
+  ],
+  "input": {
+    "runes": [{"spirit": {"id": "r_p1", "name": "p1"}, "glyph": "player", "content": {}, "tags": []}],
+    "layout": {"edges": []}
+  },
+  "expect": {"error": "box-interface"}
+}

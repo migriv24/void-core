@@ -83,6 +83,10 @@ VC_Manager *vc_create(const char *state_json) {
     m->state = vc_state_new();
   }
   m->glyphs = vc_glyphs_new_builtin(); /* built-ins; host adds app glyphs after */
+  /* Undo is ON with the SPEC §6 reference bound — the calloc'd 0s would mean the
+   * opposite, and a default that silently drops undo is not a default. */
+  m->undo_on = 1;
+  m->undo_depth = vc_undo_default_depth();
   return m;
 }
 
@@ -116,6 +120,39 @@ char *vc_export_state(VC_Manager *m) {
   return cJSON_PrintUnformatted(m->state);
 }
 
+void vc_set_undo(VC_Manager *m, int enabled) {
+  if (!m) return;
+  m->undo_on = enabled ? 1 : 0;
+  /* Turning undo off DROPS the stacks, unlike vc_set_journal, which keeps its
+   * entries. The difference is not an inconsistency: journal entries are an
+   * exported artifact a host can still read after switching off, while an undo
+   * frame is only ever consumed by `undo`/`redo` — which now fail. Keeping them
+   * would hold the one thing the host just said it does not want to pay for. */
+  if (!m->undo_on) vc_undo_clear(m);
+}
+
+void vc_set_undo_depth(VC_Manager *m, int depth) {
+  if (!m) return;
+  m->undo_depth = depth > 0 ? depth : 1;
+  vc_undo_trim(m); /* apply now, not at the next mutation */
+}
+
+void vc_set_journal(VC_Manager *m, int enabled) {
+  if (m) m->journal_on = enabled ? 1 : 0;
+}
+
+char *vc_export_journal(VC_Manager *m) {
+  if (!m) return NULL;
+  cJSON *arr = vc_journal_json(m);
+  char *out = cJSON_PrintUnformatted(arr);
+  cJSON_Delete(arr);
+  return out;
+}
+
+void vc_journal_clear(VC_Manager *m) {
+  if (m) vc_journal_clear_all(m);
+}
+
 char *vc_alloc_str(const char *s) {
   if (!s) return NULL;
   size_t n = strlen(s) + 1;
@@ -131,6 +168,7 @@ void vc_free_str(char *s) {
 void vc_destroy(VC_Manager *m) {
   if (!m) return;
   vc_undo_clear(m);
+  vc_journal_clear_all(m);
   if (m->glyphs) cJSON_Delete(m->glyphs);
   if (m->log) cJSON_Delete(m->log);
   if (m->state) cJSON_Delete(m->state);

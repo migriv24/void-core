@@ -28,6 +28,19 @@ from typing import Optional
 
 Port = tuple[str, int]  # (agent_id, port_index); index 0 == principal
 
+# The composition namespace (reduce/box.py, contract §7). A spliced agent is renamed
+# `<rune>/<agent>`, so `/` is RESERVED in a reduction agent id and `to_net` refuses a
+# rune whose name contains one. That refusal is what makes `box_path` — and therefore
+# the derived-id owner prefix (§2) — a fact rather than a guess: without it a host with
+# a rune literally named "a/b" would silently look boxed.
+SEP = "/"
+
+
+def box_path(agent_id: str) -> tuple[str, ...]:
+    """Which box an agent came from: `"p1/hand/finger"` -> `("p1", "hand")`; a parent's
+    own agent -> `()`."""
+    return tuple(agent_id.split(SEP)[:-1])
+
 
 class NetError(ValueError):
     """A malformed net: a port out of range, a non-symmetric or over-subscribed wire."""
@@ -142,6 +155,21 @@ class Net:
 _REL = re.compile(r"^(\d+):(\d+)$")
 
 
+def check_id(name: str) -> str:
+    """Refuse a rune name that would be ambiguous as an agent id. `/` is reserved for the
+    composition namespace (§7), and the reservation has to be enforced at the door rather
+    than assumed: `box_path` and the derived-id owner prefix both read structure out of an
+    id, so a rune named "a/b" in a flat mantle would otherwise read as an agent belonging
+    to a box named "a". Refusing the input is this project's standing preference over
+    guessing at it (SPEC §6.1 rule 5, same reasoning)."""
+    if SEP in name:
+        raise NetError(
+            f"rune name {name!r} contains {SEP!r}, which is reserved for the composition "
+            f"namespace (an agent spliced in from a boxed mantle is named "
+            f"'<rune>{SEP}<agent>'). Rename the rune, or drop the {SEP!r}.")
+    return name
+
+
 def to_net(mantle: dict, signatures: dict[str, int]) -> Net:
     """Build a Net from a mantle (`runes` + `layout.edges`). `signatures` maps glyph ->
     aux-port count (arity). Edge ports are read from `relation` as `"i:j"`."""
@@ -149,6 +177,7 @@ def to_net(mantle: dict, signatures: dict[str, int]) -> Net:
     for rune in mantle.get("runes", []):
         name = rune["spirit"]["name"]
         glyph = rune.get("glyph", "")
+        check_id(name)
         net.add(Agent(name, glyph, signatures.get(glyph, 0),
                       dict(rune.get("content") or {}), list(rune.get("tags") or [])))
     for e in mantle.get("layout", {}).get("edges", []):

@@ -13,6 +13,7 @@ When a track matures into contract, it lands in `SPEC.md`.
 ## Foundations & architecture
 
 * [Interaction nets — theory](/design/interaction-nets-theory.md) - the mathematical foundation of rune / mantle / holiday
+* [Mantle composition — a mantle as a rune](/design/mantle-composition.md) - a net with n free ports IS an agent of arity n: boxing a player mantle into a world mantle, why encapsulation and reach-in are one mechanism, and when a boundary is a box vs a holiday
 * [C core with FFI bindings](/design/c-core-architecture.md) - why one C library + thin bindings; core vs holiday boundary
 * [Domains and guarantees](/design/domains-and-guarantees.md) - where Void Core applies; the forge, not the artifact
 * [Command architecture](/design/command-architecture.md) - the one dispatcher command surface

@@ -133,21 +133,33 @@ module.exports = (deps) => {
       return res([`mantle: ${m ? m.name : '(none)'}   domain: ${d ? d.name : '(none)'}`], { mantle: m && m.name, domain: d && d.name });
     },
     validate(c, pos, flags) {
+      // The problem STRINGS are the contract here, not just `ok` (SPEC §7.2): a host
+      // reads them to tell a legitimate dangle from a mistake, so the oracle spells
+      // them exactly as the C core does. They diverged in every one of the four until
+      // 2026-08-29 — invisible, because no case had ever asserted on validate's `data`.
       const m = mantleOrThrow();
       const errs = [];
       const names = new Set(m.runes.map(r => r.spirit.name));
+      const mantles = new Set(state.mantles.map(x => x.name));
       const seen = new Set();
       for (const r of m.runes) {
-        if (seen.has(r.spirit.name)) errs.push(`duplicate rune name: ${r.spirit.name}`);
+        if (seen.has(r.spirit.name)) errs.push(`duplicate name: ${r.spirit.name}`);
         seen.add(r.spirit.name);
-        if (!glyphs.has(r.glyph)) errs.push(`rune ${r.spirit.name}: unregistered glyph "${r.glyph}"`);
+        if (!glyphs.has(r.glyph)) errs.push(`unregistered glyph '${r.glyph}' on ${r.spirit.name}`);
       }
       for (const e of m.layout.edges || []) {
-        if (!names.has(e.from)) errs.push(`layout edge from missing rune "${e.from}"`);
-        if (!names.has(e.to)) errs.push(`layout edge to missing rune "${e.to}"`);
+        for (const side of ['from', 'to']) {
+          const end = e[side];
+          if (names.has(end)) continue;                  // resolves here: fine
+          // A dangling endpoint is not-yet-created knowledge and legal (§3.7); one
+          // that names a MANTLE is a cross-kind link, which v1 does not have.
+          errs.push(mantles.has(end)
+            ? `cross-kind edge ${side} '${end}': names a mantle, not a rune`
+            : `dangling edge ${side} '${end}'`);
+        }
       }
       if (flags.quiet) return res([], errs, errs.length === 0);
-      return res(errs.length ? errs : ['valid — no problems found'], errs, errs.length === 0);
+      return res(errs.length ? errs : ['valid'], errs, errs.length === 0);
     },
   };
 };

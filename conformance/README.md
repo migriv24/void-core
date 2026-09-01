@@ -29,6 +29,16 @@ across implementations by construction.
 The runner delivers each script through the §2 state document (`scripts` map) and
 invokes `script run` — so state-document loading is itself exercised by every case.
 
+**Cases are read as bytes and decoded without newline translation** (SPEC §11), and
+any runner in another language MUST do the same. This is not fastidiousness: the
+runner used to read cases in Python text mode, whose universal-newline translation
+rewrote CRLF to LF before the library saw a byte — so no case could observe how an
+implementation treats a CR, while `14-journal.vs` sat in the repository *with* CRLF,
+green here and red for the first host that read it faithfully (Void Unity, 2026-08-27).
+A suite that normalizes its own inputs is not testing what a host will be handed.
+`.gitattributes` keeps `*.vs` at LF, with `15-crlf.vs` marked `-text` because it is the
+one case whose bytes are the point.
+
 ## Coverage
 
 | case | SPEC | what it fixes |
@@ -46,6 +56,9 @@ invokes `script run` — so state-document loading is itself exercised by every 
 | `11-mantle-lifecycle.vs` | §3.4, §7.1, §7.2 | `mantle rm`/`rename` (+ `rmdir`), rm-of-active deactivates, name reuse after rm, undo restores mantle + runes + active |
 | `12-arg-quoting.vs` | §6.1 | argument quoting — quote-stripping, the single `\'` escape, strip-anywhere quoting, literal backslashes, and the trailing-backslash trap — whose output is now REFUSED (rule 5) rather than silently truncating a value |
 | `13-transcript-safety.vs` | §6.1, §8.1 | a value in a transcript is DATA, never syntax — newline/`;`/`}` inside a quoted argument, `'` not closing the statement, single quotes suppressing `$` expansion, an expansion staying exactly one argument (including empty), and `${var}` as an expansion rather than a block |
+| `14-journal.vs` | §6.2 | the command journal — off by default, `minted` ids, `pure`/`slice` classification, canonical `command`, failed commands recording nothing |
+| `15-crlf.vs` | §8 | **stored with CRLF on purpose** — a CR is a line terminator, not content: values don't carry it, string comparison sees through it, and a line ending inside a quoted run is still data |
+| `16-validate-endpoints.vs` | §3.7, §7.2 | `validate` classifies an unresolved link endpoint — **cross-kind** (names a mantle) vs **dangling** (names nothing), each side, both at once, and the classification following the state document rather than being stored on the edge |
 
 Not covered here (tested elsewhere or host-dependent): the §9 adapter/effect seam
 (`bindings/python/effect_test.py`), §9 attribution + the mutation spine
@@ -63,7 +76,7 @@ the semantics, `cases/*.json`, and a small portable `run.py` (~100 lines) to por
 
 | suite | layer | run |
 |---|---|---|
-| [`reduce/`](reduce/README.md) | the interaction-net executor | `python conformance/reduce/run.py` |
+| [`reduce/`](reduce/README.md) | the interaction-net executor (+ **composition** — a mantle as a rune inside another mantle, §7 — and the `patch` content rule, §2) | `python conformance/reduce/run.py` |
 | [`temper/`](temper/README.md) | normalization (idempotent, context-blind) | `python conformance/temper/run.py` |
 | [`scry/`](scry/README.md) | projection (the read side) | `python conformance/scry/run.py` |
 

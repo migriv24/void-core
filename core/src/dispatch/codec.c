@@ -100,7 +100,11 @@ char *vc_transcript_split_json(const char *src) {
 
   for (size_t i = 0; s[i] || n;) {
     int at_end = !s[i];
-    int boundary = at_end || (!q && (s[i] == '\n' || s[i] == ';'));
+    /* A bare CR ends a statement exactly as LF does, so a CRLF transcript splits
+     * the same as an LF one and no CR reaches a value (Void Unity, 2026-08-27).
+     * Same rule as the Voidscript statement reader -- one answer, both readers. */
+    int boundary =
+        at_end || (!q && (s[i] == '\n' || s[i] == '\r' || s[i] == ';'));
     if (!boundary) {
       /* a comment runs to end of line — but only outside a quoted run */
       if (!q && s[i] == '#' && n == 0) {
@@ -112,15 +116,25 @@ char *vc_transcript_split_json(const char *src) {
       if (n == 0) stmt_line = line_no;
       int emit, used = vc_quote_step(s + i, &q, &emit);
       if (used == 0) break;
-      for (int k = 0; k < used; k++) TS_PUSH(s[i + k]);
+      for (int k = 0; k < used; k++) {
+        /* A newline inside a quoted value is not a boundary, but it is still a
+         * line. Counting only at boundaries left every statement after a
+         * multi-line value low by that value's newline count -- and the same
+         * counter feeds `err_line`, so an unterminated quote LATER in the file
+         * was blamed on the wrong line. That is exactly the diagnostic this
+         * function exists to give (Void Maiz, 2026-08-25). `stmt_line` is still
+         * taken at the statement's first non-blank byte, so a multi-line
+         * statement reports the line it STARTED on. */
+        if (s[i + k] == '\n') line_no++;
+        TS_PUSH(s[i + k]);
+      }
       i += used;
       continue;
     }
     /* statement boundary */
     if (n + 1 >= bcap) { bcap *= 2; buf = (char *)realloc(buf, bcap); }
     buf[n] = 0;
-    while (n > 0 && (buf[n - 1] == ' ' || buf[n - 1] == '\t' || buf[n - 1] == '\r'))
-      buf[--n] = 0;
+    while (n > 0 && (buf[n - 1] == ' ' || buf[n - 1] == '\t')) buf[--n] = 0;
     if (n > 0) {
       vc_argv a = vc_argv_split(buf);
       if (a.unterminated) {

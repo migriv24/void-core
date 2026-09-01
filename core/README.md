@@ -45,6 +45,7 @@ core/
       codec.c            # the §6.1 codec, exported (quote / split / transcript)
       dispatch.c         # the one command router -> {ok,lines,data} (SPEC §6,§7)
       undo.c             # undo/redo snapshots (SPEC §6)
+      journal.c          # the command journal: reified commands (SPEC §6.2)
       lifecycle.c        # _baseline dirty-tracking (status/diff/revert)
     scripts/voidscript.c # the Voidscript interpreter (SPEC §8)
     util/
@@ -76,6 +77,11 @@ int         vc_tag_match(const char *expr, const char *tags_json); // SPEC §5, 
 char       *vc_arg_quote(const char *value);            // §6.1 encode, stateless
 char       *vc_argv_split_json(const char *line);       // §6.1 decode, stateless
 char       *vc_transcript_split_json(const char *src);  // §6.1 decode a transcript
+void        vc_set_undo(VC_Manager *, int enabled);     // §6 undo, ON by default
+void        vc_set_undo_depth(VC_Manager *, int depth);  // §6 stack bound (200)
+void        vc_set_journal(VC_Manager *, int enabled);  // §6.2 record, off by default
+char       *vc_export_journal(VC_Manager *);            // -> reified commands JSON
+void        vc_journal_clear(VC_Manager *);
 ```
 Any returned `char*` is freed with `vc_free_str`. A `VC_Manager` is **not
 thread-safe** — serialize calls per manager (SPEC §6); stateless functions
@@ -124,11 +130,55 @@ void        vc_set_effect_handler(VC_Manager *, VC_EffectFn, void *user); // §9
 char       *vc_arg_quote(const char *value);            // §6.1, stateless
 char       *vc_argv_split_json(const char *line);       // §6.1, stateless
 char       *vc_transcript_split_json(const char *src);  // §6.1, stateless
+void        vc_set_undo(VC_Manager *, int enabled);      // §6 undo, on by default
+void        vc_set_undo_depth(VC_Manager *, int depth);  // §6 frames kept (200)
+void        vc_set_journal(VC_Manager *, int enabled);  // §6.2 command journal
+char       *vc_export_journal(VC_Manager *);            // §6.2 the record
+void        vc_journal_clear(VC_Manager *);             // §6.2
 ```
 Glyphs and the two callbacks are host config — NOT in the exported state; set them
 after each `vc_create`. The **effect handler** is the holiday boundary: the core
 does its model-side work (e.g. `save` snapshots the baseline) and calls the host
 for the real I/O (write files, deploy, build, preview).
+
+### Undo control (§6)
+
+Undo is on by default and every mutating command snapshots the whole undoable
+slice (`mantles` + `active`) before it runs. That memento is cheap for a
+**document** and expensive for a **world**, and which one lives in `mantles` is a
+decision only the host has made. Void Unity's rule is *a thing is a rune iff it
+can be the endpoint of a link*, which makes every door, crate and NPC in a
+streaming map a rune; they measured 27.6 ms for one `set` at 4 000 runes —
+longer than a 60 Hz frame — and quadratic construction, since each `rune new`
+copies every rune already present (2026-08-28).
+
+So `vc_set_undo(m, 0)` exists, mirroring `vc_set_journal`. Off means no frame is
+taken, `undo`/`redo` fail *saying they are disabled*, and `history` says so too.
+`batch` stays atomic either way — it rolls back from its own saved copy, not from
+the undo stack. `vc_set_undo_depth(m, n)` bounds the stacks (default 200) and
+trims immediately when lowered. Measured here, building 600 runes: **498 ms on /
+18 ms off**; one `set` at 600 runes: **1 808 µs on / 8 µs off**. That is what lets
+one process hold an *authoring* manager (undo on, journal on, attributed) and a
+*world* manager (both off) side by side.
+
+This is a switch, not a fix — the memento is still O(slice) when it is taken. The
+fix is reified commands (`okf/design/command-architecture.md`), which two hosts
+have now asked for. `bindings/python/undo_control_test.py` pins the contract.
+
+### The §6.2 command journal
+
+Undo is a before-image — the right structure for taking a change back here, and the
+wrong one for describing a change to anything else. `vc_set_journal` turns on the
+other half: each successful mutating command reified as
+`{seq, command, verb, who, pure, slice, minted}`, readable through
+`vc_export_journal` or the `journal` verb. **Off by default**, so a host that does
+not want the record pays neither the entries nor the id-diff that fills `minted`.
+
+`pure` is false iff the verb could reach the effect handler (`save`, `deploy`,
+`build`, `preview`, `effect`) — statically, so two peers classify the same command
+identically even when only one has a handler registered. `minted` is the ids that
+exist after the command and did not before, which is what lets the *entry* replay
+deterministically where the command *text* cannot (ids come from the CSPRNG).
 
 ### The §6.1 codec
 
@@ -164,6 +214,17 @@ makes its effect readable without simulating it.
   `break/continue`, `return`, `halt`, `assert`, operators; run via `script`.
 - **Logging + adapter seam** (SPEC §9): in-memory log ring + `vc_set_log_sink`;
   `save/deploy/build/preview` route through `vc_set_effect_handler`.
+
+## Host gotchas
+
+Things that will look like Void Core broke your build and are not Void Core.
+
+* **A version floor compared as a string breaks at 0.2.10.** `vc_version()` returns a
+  dotted string, and `version >= "0.2.4"` is a *lexicographic* compare: `"0.2.10" <
+  "0.2.4"`, because `"1"` sorts before `"4"`. Such a check is wrong from the day it is
+  written and can only ever fire once a component reaches double digits, which the minor
+  did at 0.2.10. Compare component-wise. (Reported by Void Maiz, 2026-08-29, who hit it
+  in `embed_smoke` and asked that it be written down once for the hosts behind them.)
 
 ## Deliberately deferred (research-track, not gaps)
 - **The interaction-net rule reducer.** Not in the C library *by design*: the

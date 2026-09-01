@@ -3,7 +3,7 @@ voidcore — the installable Python surface for Void Core.
 
 Install **editable** from the repo root so updates transfer with no copying:
 
-    pip install -e C:/Users/migri/Documents/Projects/VoidCore
+    pip install -e /path/to/VoidCore          # e.g. ../VoidCore from a sibling app
 
 Editable means this package points at the *live* source tree, so any change to the
 C core (a rebuilt `libvoidcore.dll`), the binding, or a holiday is picked up on the
@@ -63,12 +63,14 @@ from temper import (  # noqa: E402  (temper normalization layer)
     normalize_tags, single_tag,
 )
 from net import Agent, Net, NetError, Port, to_net, from_net  # noqa: E402  (reduce: net)
+from box import Box, BoxError, box_path, compose, interface_ports  # noqa: E402  (reduce: composition)
 from reduce import (  # noqa: E402  (reduce: interaction-net executor)
-    Reducer, Rewrite, ReduceError, A, B, annihilate, commute, expand,
+    Reducer, Rewrite, ReduceError, A, B, annihilate, commute, expand, patch,
+    fresh_id_minter,
 )
 from .dispatch import Dispatcher  # noqa: E402  (transformation-verb seam, SPEC §7)
 from .spec import (  # noqa: E402  (data-authored transformation specs)
-    temper_from_spec, selector_from_spec, reducer_from_spec,
+    temper_from_spec, selector_from_spec, reducer_from_spec, boxes_from_spec,
     temper_rule_names, reduce_rule_names,
 )
 
@@ -99,9 +101,11 @@ __all__ = ["VoidCore", "quote_arg", "split_args", "split_transcript",
            "Temper", "dedupe", "member_or_default", "default_content",
            "default_tag", "normalize_tags", "single_tag",
            "Reducer", "Rewrite", "ReduceError", "A", "B",
-           "annihilate", "commute", "expand",
+           "annihilate", "commute", "expand", "patch", "fresh_id_minter",
            "Agent", "Net", "NetError", "Port", "to_net", "from_net",
+           "Box", "BoxError", "box_path", "compose", "interface_ports",
            "Dispatcher", "temper_from_spec", "selector_from_spec", "reducer_from_spec",
+           "boxes_from_spec",
            "temper_rule_names", "reduce_rule_names", "ROOT"]
 # Derived, not written: this is the FIFTH place a version lives, and it had drifted
 # five releases behind the other four (0.1.0 vs 0.2.6) while being the one a host

@@ -4,7 +4,7 @@ title: C core
 description: The C implementation of Void Core, exposing a pure C ABI as a self-contained libvoidcore.dll.
 resource: core/README.md
 tags: [status:current, audience:library, audience:dev, confidence:asserted]
-timestamp: 2026-07-03T00:00:00Z
+timestamp: 2026-08-30T00:00:00Z
 ---
 
 The current implementation of Void Core: ~3300 lines of hand-written C over vendored

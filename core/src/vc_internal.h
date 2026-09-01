@@ -15,7 +15,7 @@
 
 /* The ONE version string — vc_version() and the `version` verb both return it.
  * (Bump here; 0.2.2/0.2.3 drifted because it was duplicated in vc_manager.c.) */
-#define VC_VERSION_STR "0.2.7"
+#define VC_VERSION_STR "0.2.12"
 
 /* An undo frame: a snapshot of the undoable slice of state (mantles + active),
  * labelled by the command that produced it (SPEC §6). v0 is memento-based; the
@@ -27,6 +27,26 @@ typedef struct {
   cJSON *active;  /* duplicated snapshot */
 } vc_undo_frame;
 
+/* A journal entry: one mutating command, reified (SPEC §6.2). Where an undo
+ * frame is a before-image, this is the change itself — addressable, replayable
+ * and transmissible. See journal.c for why the two are separate structures. */
+typedef struct {
+  long seq;      /* 1-based, never reused within a manager */
+  char *command; /* the CANONICAL argv-joined line (aliases already desugared) */
+  char *verb;    /* canonical verb, for filtering without re-splitting */
+  char *who;     /* config.actor at the time, or NULL (SPEC §9) */
+  int pure;      /* 1 = model-only; 0 = crossed the holiday boundary (§6.2) */
+  char *slice;   /* "undo" (mantles+active) or "view" (placement) */
+  cJSON *minted; /* array of ids minted by this command (never NULL) */
+} vc_journal_entry;
+
+/* A sorted set of the `id` strings in a state document — the pre/post images
+ * whose difference is a command's minted ids. */
+typedef struct {
+  char **ids;
+  int count;
+} vc_id_set;
+
 /* The manager owns exactly one state document (SPEC §2) + undo/redo stacks. */
 struct VC_Manager {
   cJSON *state;
@@ -37,10 +57,25 @@ struct VC_Manager {
   VC_EffectFn effect; /* host effect handler (save/deploy/build/preview) */
   void *effect_user;
   int suppress_undo; /* set during batch so sub-commands don't push frames */
+  /* undo/redo (SPEC §6) — ON by default, but host-controllable like the journal.
+   * The memento is a copy of the whole undoable slice, so a host whose `mantles`
+   * hold a WORLD rather than a document pays that copy on every mutation. */
+  int undo_on;
+  int undo_depth; /* max frames kept; the oldest is dropped past it */
   vc_undo_frame *undo;
   int undo_count, undo_cap;
   vc_undo_frame *redo;
   int redo_count, redo_cap;
+  /* the command journal (SPEC §6.2) — opt-in, so it costs nothing when unused */
+  int journal_on;
+  long journal_seq;
+  vc_journal_entry *journal;
+  int journal_count, journal_cap;
+  /* Observed holiday crossing: set whenever the effect handler is actually
+   * invoked, cleared at the start of each top-level dispatch. It can only
+   * UPGRADE a command's classification pure -> effectful, never downgrade one
+   * (see is_effectful() in dispatch.c). */
+  int effect_fired;
 };
 
 /* ── state document (model/store, currently in vc_manager.c) ──────────────── */
@@ -69,12 +104,25 @@ int vc_is_dirty(cJSON *state);
 /* Snapshot the current undoable slice, labelled by `command`. The caller either
  * commits the frame (on a successful mutation) or frees it (on failure). */
 vc_undo_frame vc_undo_capture(struct VC_Manager *m, const char *command);
+void vc_undo_trim(struct VC_Manager *m); /* enforce m->undo_depth on both stacks */
+int vc_undo_default_depth(void);         /* the SPEC §6 reference bound (200) */
 void vc_undo_commit(struct VC_Manager *m, vc_undo_frame *snap); /* push + clear redo */
 void vc_undo_frame_free(vc_undo_frame *f);
 int vc_undo(struct VC_Manager *m, int n); /* returns count actually undone */
 int vc_redo(struct VC_Manager *m, int n);
 cJSON *vc_history(struct VC_Manager *m);  /* array of undo labels, oldest first */
 void vc_undo_clear(struct VC_Manager *m); /* free both stacks (used by destroy) */
+
+/* ── command journal (SPEC §6.2) ─────────────────────────────────────────── */
+/* Takes ownership of `minted` (and frees it if journaling is off). */
+void vc_journal_append(struct VC_Manager *m, const char *command,
+                       const char *verb, int pure, const char *slice,
+                       cJSON *minted);
+cJSON *vc_journal_json(struct VC_Manager *m);  /* the record as an array */
+void vc_journal_clear_all(struct VC_Manager *m);
+vc_id_set vc_id_snapshot(cJSON *state);
+void vc_id_set_free(vc_id_set *s);
+cJSON *vc_id_set_minted(const vc_id_set *pre, const vc_id_set *post);
 
 /* ── spirit (model) — SPEC §3.1 ──────────────────────────────────────────── */
 cJSON *vc_spirit_new(const char *prefix, const char *name);

@@ -1,0 +1,29 @@
+{
+  "case": "21-adapter-ports-both-paths",
+  "description": "One malformed edge, one abstract kind — regardless of whether the mantle happens to contain a box. An edge naming an endpoint that is not a rune of the mantle is `adapter-ports` through the flat adapter, and this case asserts it stays `adapter-ports` through the composing one: the mantle here holds a box (`p1`), so the composition path runs, and the offending edge names `ghost`, which is no rune at all. Before this case the composing path answered `box-interface` for it, so the same defect in the same document reported two different kinds depending only on whether some OTHER rune was a box — the one thing a conformance runner exists to prevent, and it was reachable because no case covered it. Found by Void Unity, 2026-08-29, by porting the runner rather than reading it.",
+  "spec": {
+    "signatures": {"body": 1, "cloth": 2, "sound": 0},
+    "boxes": {
+      "player": {"mantle": "player",
+                 "interface": ["skin:0", "shirt:0", "voice:0", "shirt:2"]}
+    },
+    "rules": []
+  },
+  "mantles": [
+    {"name": "player",
+     "runes": [
+       {"spirit": {"id": "r_skin", "name": "skin"}, "glyph": "body", "content": {}, "tags": []},
+       {"spirit": {"id": "r_shirt", "name": "shirt"}, "glyph": "cloth", "content": {}, "tags": []},
+       {"spirit": {"id": "r_voice", "name": "voice"}, "glyph": "sound", "content": {}, "tags": []}
+     ],
+     "layout": {"edges": [{"from": "shirt", "to": "skin", "relation": "1:1"}]}}
+  ],
+  "input": {
+    "runes": [
+      {"spirit": {"id": "r_p1", "name": "p1"}, "glyph": "player", "content": {}, "tags": []},
+      {"spirit": {"id": "r_door", "name": "door"}, "glyph": "body", "content": {}, "tags": []}
+    ],
+    "layout": {"edges": [{"from": "door", "to": "ghost", "relation": "0:0"}]}
+  },
+  "expect": {"error": "adapter-ports"}
+}

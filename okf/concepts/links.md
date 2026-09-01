@@ -4,7 +4,7 @@ title: Links
 description: Loose, non-reactive connections between runes (and, later, mantles/holidays) — the passive substrate under layout edges, bindings, and tag references.
 resource: core/src/model/mantle.c
 tags: [status:current, audience:dev, audience:library, confidence:verified, foundation]
-timestamp: 2026-06-18T00:00:00Z
+timestamp: 2026-08-30T00:00:00Z
 ---
 
 A **link** is a loose connection between two entities. It is directed (or not),
@@ -41,6 +41,13 @@ firing semantics.** Links are the graph; interaction nets are a behavior layer o
 - **May dangle.** A link to a not-yet-existing target is legal, not an error —
   exactly like an [OKF](/components/okf-engine.md) markdown link ("not-yet-written
   knowledge") and the agent memory store's `[[wikilink]]`.
+- **A dangle and a mistake are told apart.** `validate` says `dangling edge …` when
+  an endpoint names nothing and `cross-kind edge … names a mantle, not a rune` when it
+  names the wrong kind of entity (SPEC §3.7). This matters precisely *because* dangling
+  is tolerated: a diagnostic a host is told to ignore has to be one it can safely
+  ignore, and until 0.2.10 the ignorable reading swallowed a real error. The kind is
+  **resolved on every call, never stored on the edge** — remove the mantle and the same
+  edge is a dangle again.
 - **Cross-kind.** Runes, mantles, and holidays can all be link endpoints.
 
 # Convergence with OKF
@@ -75,6 +82,29 @@ the [OKF engine](/components/okf-engine.md) maps concept links onto. The reactiv
 counterpart (a link that fires) is a `binding`; the weighted
 [tag graph](/concepts/tag-system.md) is the tag↔tag analogue.
 
-`planned`: extending links **cross-entity** (rune↔[mantle](/concepts/mantle.md)↔[holiday](/concepts/holiday.md))
-at host level, and folding `bindings` + the rune `relations` field into the one
-primitive so there is a single link store rather than several.
+`planned`: extending links **cross-entity**, narrowed 2026-08-29 to
+rune↔[mantle](/concepts/mantle.md) — the third of the original
+rune↔mantle↔[holiday](/concepts/holiday.md) that a host is actually blocked on
+(Void Unity's *mantle as agent*: an equipment mantle appearing in the world mantle as
+a rune exposing only its free ports, which is
+[interaction nets](/concepts/interaction-nets.md)' own reading — *a net with n free
+ports behaves as an agent of arity n*). Holiday endpoints are not planned.
+
+Two things about that are worth knowing. First, it is blocked on SPEC §12's *scope of
+the undoable slice*, because an edge naming another mantle is the first edge whose meaning
+lives outside its own mantle, and `mantle rm` + `undo` over one asks exactly the question
+bindings already ask.
+
+Second — and this is why the block is no longer urgent — the forcing use case turned out
+not to need it. The encapsulation it wants (*the inner rule cannot reach the outer silk
+because there is no active pair, not because a filter said no*) is a statement about the
+**net**, not about the link graph, and it shipped in 0.2.11 as a boxing rule in
+[Reduce](/concepts/reduce.md)'s mantle adapter: see
+[mantle composition](/design/mantle-composition.md). A box is a fact about a *rule set*,
+not a reference stored in the document, so it needed no link primitive and asked the
+undoable-slice question not at all. A cross-entity **link** is still the right thing for
+saying *"this rune relates to that mantle"* as passive knowledge — which is what links
+are — and that is a smaller, later, unblocking-nobody job.
+
+Also `planned`: folding `bindings` + the rune `relations` field into the one primitive
+so there is a single link store rather than several.

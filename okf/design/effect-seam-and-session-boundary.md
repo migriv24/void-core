@@ -1,9 +1,9 @@
 ---
 type: Design
 title: The effect seam & the session boundary
-description: Four open contract questions routed Core-ward by Void Maiz (2026-08-18) — can an effect handler fail a dispatch, should `save` move `_baseline` when the adapter didn't, is history session-scoped by design, and should the derived-id hash be normative. Parked with a stance, not yet decided.
+description: Four open contract questions routed Core-ward by Void Maiz (2026-08-18) — can an effect handler fail a dispatch, should `save` move `_baseline` when the adapter didn't, is history session-scoped by design, and should the derived-id hash be normative. Three parked with a stance; the fourth (the hash) was decided 2026-08-29 as SHA-256/48 once Void Unity supplied the constraint from a language without BLAKE2b.
 tags: [status:planned, audience:dev, confidence:asserted]
-timestamp: 2026-08-25T00:00:00Z
+timestamp: 2026-08-29T00:00:00Z
 ---
 
 # The effect seam & the session boundary
@@ -139,7 +139,28 @@ They also persist the log spine themselves, to a file beside the document, in ou
 line format (`[ISO] LEVEL op (who): message`), reading §9's "the core does no file
 I/O" as making that the front-end's job. That reading is correct.
 
-## 3. Should the derived-id hash be normative? (their item 1)
+## 3. Should the derived-id hash be normative? (their item 1) — **DECIDED 2026-08-29, and not the way this section assumed**
+
+> **Graduated to `conformance/reduce/README.md` §2.** The hash is now normative and it
+> is **SHA-256 truncated to 6 bytes**, not the BLAKE2b-48 this section was arguing to
+> bless. Void Unity's 2026-08-28 message supplied the half Maiz could not: Maiz asked
+> *whether* to make it normative, from C++, where both digests are equally reachable, so
+> the question looked like it had one free answer. Unity asked from .NET/Mono, which has
+> **no BLAKE2b** — so blessing the reference's digest would have required the second
+> implementation to vendor a cryptographic primitive whose test vectors are RFC 7693's
+> rather than Void Core's, inside a project whose charter forbids exactly that
+> reimplementation. Availability turned out to be the deciding property, and it is
+> invisible from a language that has everything.
+>
+> The cost is owned rather than hidden: **Void Maiz already matches BLAKE2b-48 byte for
+> byte**, on this section's own encouragement, and this change breaks that. They were
+> told directly (`MESSAGE_FOR_VOIDMAIZ_derived-id-digest-is-sha256-2026-08-29.md`) —
+> a one-way door walked through on a host's advice should not be re-walked by letting
+> them discover it from a red run. Their argument is the one that won, quoted below;
+> only the digest it names changed.
+>
+> Also landed with it: **case 16**, minter vectors (key in / id out, no reduction), so
+> the next implementer debugs the hash without debugging the rewriter.
 
 Reported, no action wanted: they were failing conformance case `15-derived-ids` for
 three weeks without knowing, because their C++ runner was dying at process start
@@ -158,13 +179,17 @@ against themselves, which §6 permits — and argue the latitude buys nothing:
 **Stance: agree, and this is the cheapest of the four.** The same argument shaped
 0.2.7's `codec_test.py`, which cross-checks the C tokenizer against the Python one
 for exactly this reason. If nobody can name what the latitude buys, make the hash
-normative and say so in §6. The only reason it is parked rather than done is that
-making something normative is a one-way door for every existing implementation, and
-it should go out with the other §9 decisions rather than alone.
+normative and say so in §6.
+
+*(Resolved 2026-08-29, per the box above. The reason given here for parking it — that
+making something normative is a one-way door — was right, and the parking is what
+made the answer better: waiting cost nothing and a second host arrived with the
+constraint that picked the digest. Shipping it alone in August would have blessed
+BLAKE2b and blocked Unity.)*
 
 ## Status
 
-`planned`. Nothing here blocks Maiz, and nothing here blocks us. The decision order
-if these are taken up together: **1(b)** (the misleading one), then **1(a)** (which
-1(b) makes testable), then **2** (which depends on 1(a) for its second answer), then
-**3** (independent, cheap). Source: `MESSAGE_FOR_VOIDCORE_maiz-headless-history-and-derived-ids-2026-08-18.md`, quoted above at the points where the wording is the argument.
+`planned` for §1 and §2; **§3 is decided and shipped in 0.2.10** (see its box). Nothing
+here blocks Maiz, and nothing here blocks us. The decision order for what is left:
+**1(b)** (the misleading one), then **1(a)** (which 1(b) makes testable), then **2**
+(which depends on 1(a) for its second answer). Source: `MESSAGE_FOR_VOIDCORE_maiz-headless-history-and-derived-ids-2026-08-18.md`, quoted above at the points where the wording is the argument.

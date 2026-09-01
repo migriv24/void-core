@@ -1,0 +1,218 @@
+{
+  "case": "25-patch-content",
+  "description": "The `patch` rule (§2), and with it the whole worked scenario authored as DATA with no code at all: a player mantle of body parts and clothing is one rune in the world, an amulet in the world is wired to the player's interface port 1 — which is the shirt's principal, its equip socket — and reducing turns that shirt purple. Before `patch`, the structural half of this was data and the content half was a code-registered `expand` rule, which put the half a designer changes on a Tuesday afternoon behind a recompile (Void Unity's measurement, 2026-08-29). What `patch` pins here: the survivor is chosen by `keep`; `copy` reads a field off the CONSUMED agent (`colour` from the amulet) and `set` writes a literal (`dyed`), with `set` applied last so literals win; the survivor keeps its glyph, arity, tags (`worn`) and aux wiring, so the shirt is still worn on the same skin; its principal is left free, so the socket reopens; and the consumed amulet's aux partner is freed. `pin_ids` carries the other half of the claim — the survivor keeps its own id, `p1/shirt`, because `patch` creates no agent and hands one back. That is a deliberate exception to the derived-id rule and it is what preserves a boxed agent's provenance for free, which is exactly the case a host most often has to draw.",
+  "spec": {
+    "signatures": {
+      "body": 1,
+      "cloth": 2,
+      "sound": 0,
+      "dye": 1
+    },
+    "boxes": {
+      "player": {
+        "mantle": "player",
+        "interface": [
+          "skin:0",
+          "shirt:0",
+          "voice:0",
+          "shirt:2"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "glyphs": [
+          "dye",
+          "cloth"
+        ],
+        "rule": "patch",
+        "keep": "cloth",
+        "copy": {
+          "colour": "colour"
+        },
+        "set": {
+          "dyed": true
+        }
+      }
+    ]
+  },
+  "mantles": [
+    {
+      "name": "player",
+      "runes": [
+        {
+          "spirit": {
+            "id": "r_skin",
+            "name": "skin"
+          },
+          "glyph": "body",
+          "content": {
+            "part": "skin"
+          },
+          "tags": []
+        },
+        {
+          "spirit": {
+            "id": "r_shirt",
+            "name": "shirt"
+          },
+          "glyph": "cloth",
+          "content": {
+            "colour": "white"
+          },
+          "tags": [
+            "worn"
+          ]
+        },
+        {
+          "spirit": {
+            "id": "r_voice",
+            "name": "voice"
+          },
+          "glyph": "sound",
+          "content": {
+            "pitch": "mid"
+          },
+          "tags": []
+        }
+      ],
+      "layout": {
+        "edges": [
+          {
+            "from": "shirt",
+            "to": "skin",
+            "relation": "1:1"
+          }
+        ]
+      }
+    }
+  ],
+  "input": {
+    "runes": [
+      {
+        "spirit": {
+          "id": "r_p1",
+          "name": "p1"
+        },
+        "glyph": "player",
+        "content": {},
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "r_amulet",
+          "name": "amulet"
+        },
+        "glyph": "dye",
+        "content": {
+          "colour": "purple"
+        },
+        "tags": []
+      },
+      {
+        "spirit": {
+          "id": "r_cord",
+          "name": "cord"
+        },
+        "glyph": "sound",
+        "content": {
+          "part": "cord"
+        },
+        "tags": []
+      }
+    ],
+    "layout": {
+      "edges": [
+        {
+          "from": "amulet",
+          "to": "p1",
+          "relation": "0:1"
+        },
+        {
+          "from": "amulet",
+          "to": "cord",
+          "relation": "1:0"
+        }
+      ]
+    }
+  },
+  "pin_ids": true,
+  "schedules": 4,
+  "expect": {
+    "canonical": {
+      "agents": [
+        [
+          "body",
+          {
+            "part": "skin"
+          },
+          []
+        ],
+        [
+          "cloth",
+          {
+            "colour": "purple",
+            "dyed": true
+          },
+          [
+            "worn"
+          ]
+        ],
+        [
+          "sound",
+          {
+            "part": "cord"
+          },
+          []
+        ],
+        [
+          "sound",
+          {
+            "pitch": "mid"
+          },
+          []
+        ]
+      ],
+      "wires": [
+        [
+          [
+            "body",
+            1
+          ],
+          [
+            "cloth",
+            1
+          ]
+        ]
+      ],
+      "free": [
+        [
+          "body",
+          0
+        ],
+        [
+          "cloth",
+          0
+        ],
+        [
+          "cloth",
+          2
+        ],
+        [
+          "sound",
+          0
+        ],
+        [
+          "sound",
+          0
+        ]
+      ]
+    },
+    "ids": [
+      "cord",
+      "p1/shirt",
+      "p1/skin",
+      "p1/voice"
+    ]
+  }
+}

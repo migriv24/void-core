@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "voidcore"
-version = "0.2.7"
+version = "0.2.12"
 description = "Void Core â€” a host-agnostic engine (C core + Python binding + holidays)."
 license = "MIT"
 requires-python = ">=3.9"

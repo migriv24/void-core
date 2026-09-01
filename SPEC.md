@@ -218,11 +218,37 @@ mantle's `layout.edges`. `relation` is a free label (may be `""`), `weight` a nu
   reactive connection that *fires* is a `binding`, §3.6 — a link with behavior.)
 - A link **MAY dangle**: an endpoint need not exist (it may be not-yet-created
   knowledge). `validate` reports dangling endpoints; it does not forbid them.
+- **An unresolved endpoint is classified, not lumped.** `validate` answers one of
+  three things per endpoint, and the two failing answers are worded differently
+  because a host must act differently on them:
+  1. it names a **rune in this mantle** — no problem;
+  2. it names a **mantle** — `cross-kind edge <from|to> '<name>': names a mantle,
+     not a rune`. v1 links are rune↔rune (below), so the name resolves to the wrong
+     *kind* of thing. This is a mistake, not a tolerance;
+  3. it names **nothing** — `dangling edge <from|to> '<name>'`. Legitimate, and
+     reported rather than forbidden.
+
+  Those two strings are **normative** (they are what a host branches on) and both
+  land in `validate`'s `data`; `ok` is false for either. The classification is
+  **derived from the state document on every call, never stored on the edge** —
+  remove the mantle and the same edge reads as a dangle again. Storing the kind
+  would put a fact about one entity inside another, where nothing keeps it true.
+  (Void Unity, 2026-08-28: a host streaming chunks in and out has edges dangle
+  constantly with nothing wrong, so a dangle is the *ignorable* diagnostic — and
+  collapsing a real cross-kind mistake into it made the ignorable one unignorable.)
 - Created/updated via `link` (and the `rune move` alias); removed via `unlink`;
   listed via `links` (§7). Repointed on rename, dropped on remove (§3.4).
 - A rune's `relations` field (§3.2) is reserved/superseded by the mantle link graph.
-- Cross-entity links (rune↔mantle↔holiday) are a planned extension; v1 links are
-  rune↔rune within one mantle.
+- **v1 links are rune↔rune within one mantle.** Cross-entity links are planned, and
+  narrowed as of 2026-08-29 to **rune↔mantle**, the third of the original
+  rune↔mantle↔holiday that has a host blocked on it (Void Unity's "mantle as agent":
+  a character's equipment mantle appearing in the world mantle as a rune exposing
+  only its free ports). Holiday endpoints are not planned. Two things are settled
+  about the shape before the design exists: an endpoint stays a **plain name whose
+  kind is resolved**, per the rule above, and nothing about how links dangle changes.
+  Blocked on §12's *scope of the undoable slice*, not on effort: an edge in mantle A
+  naming mantle B is the first edge whose meaning depends on another mantle, so
+  `mantle rm B` and its `undo` need an answer that question has to give first.
 
 ---
 
@@ -408,7 +434,24 @@ with `\'` for any apostrophe inside the JSON.
 
 **Mutation invariants:** every mutating verb pushes an undo frame (snapshot of
 mantles+active) *before* mutating; the redo stack is cleared on new mutation;
-the undo stack is bounded (reference impl: 200).
+the undo stack is bounded (reference impl: 200 by default).
+
+**Undo is host-controlled** (`vc_set_undo`, `vc_set_undo_depth`; **[impl]** 0.2.9).
+On by default. A host MAY turn it off, in which case no frame is taken and
+`undo`/`redo` MUST fail *saying so* rather than reporting an empty stack — the
+distinction matters because a script running inside such a host did not strike
+that bargain and would otherwise read the failure as a fact about the state.
+Rationale: the frame is a copy of the whole undoable slice, which is proportional
+to a *document* for hosts that keep a design in `mantles` and proportional to a
+*world* for hosts whose runes are live instances. Void Unity measured 27.6 ms for
+a single `set` at 4 000 runes — longer than a 60 Hz frame — and quadratic world
+construction, because each `rune new` copies every rune already present
+(2026-08-28). Which kind of thing lives in `mantles` is a decision only the host
+has made, so the switch is the host's, exactly as the §6.2 journal's is. Turning
+undo off drops the frames already held (an undo frame, unlike a journal entry, is
+not an artifact anyone can still read). `batch` **remains atomic** with undo off:
+its rollback is its own saved copy, not the undo stack. Turning it off does not
+change what any command does.
 
 **The view slice:** `rune.placement` (§3.2) is carved out of the undo slice.
 `place` (§7.2) mutates it and is logged on the mutation spine (§9), but pushes
@@ -431,6 +474,113 @@ may run concurrently. Host callbacks (§9 log sink / effect handler) are invoked
 synchronously on the dispatching thread, *inside* the dispatch — a callback MUST
 NOT re-enter the same instance. Stateless library functions (`vc_tag_match`,
 `vc_alloc_str`, `vc_free_str`, `vc_version`) are safe from any thread.
+
+### 6.2 Pure vs effectful, and the command journal  **[impl]**
+
+Normative since 0.2.8. `command-architecture.md` §2 named the pure/effectful
+distinction *"probably the single most important distinction to get right"* and
+deferred it, on the stated condition that it be resolved **before** commands were
+reified. This section resolves it, and then reifies them.
+
+#### The classification
+
+Every command is **pure** or **effectful**.
+
+> A command is **effectful** iff its verb can reach the host through the effect
+> handler (§9). The complete list is `save`, `deploy`, `build`, `preview`,
+> `effect`. Every other verb is **pure**.
+
+The list is complete because `vc_set_effect_handler` is the *only* way out of the
+core (§1: Void Core does no I/O). A pure command touches nothing but the state
+document, and is therefore replayable, invertible, and addressable by its result.
+An effectful one is none of those three, because the world it changed is not in
+the document.
+
+Two properties are normative, and both exist to stop the same failure:
+
+1. **The classification is static** — a function of the verb, not of what
+   happened. `save` is effectful on a host that registered no effect handler,
+   even though nothing left the process. A host-dependent answer would let the
+   same command be a recordable change on one peer and not on another, which is
+   precisely the divergence the distinction exists to prevent.
+2. **Observation may upgrade, never downgrade.** A compound command (`batch`) is
+   pure only if no sub-command reached the host. Implementations MUST observe the
+   effect-handler crossing rather than infer purity from the compound verb alone.
+
+Consumers building a **replayable or transmissible** history MUST keep only pure
+entries. An effectful entry is still *recorded* — see below for why.
+
+#### The journal
+
+Undo stays **memento-based** (§6): a before-image is the simplest correct way to
+take a change back on one device, and the SPEC's undo wording is unchanged. The
+journal answers the different question — *what happened, as data* — which a
+snapshot cannot, because a before-image is not addressable, not replayable, and
+not transmissible.
+
+They are deliberately **two structures**, not one:
+
+- the undo stack is **bounded** and drops its oldest frame; a record that
+  silently forgets is not a record.
+- `undo`/`redo` **consume** frames, moving them between stacks; a record must
+  *gain* an entry when a change is taken back, not lose one.
+
+The journal is **off by default** (`vc_set_journal`). A host that does not ask
+for the record pays neither the entries nor the id-diff that fills `minted`.
+Enabling it MUST NOT change what any command does.
+
+Each entry:
+
+```jsonc
+{ "seq": 1,                       // 1-based; never reused within an instance
+  "command": "rune new text title", // the CANONICAL line (aliases desugared)
+  "verb": "rune",                 // canonical verb, for filtering
+  "who": "ada",                   // config.actor at the time, or null (§9)
+  "pure": true,                   // false = could cross the holiday boundary
+  "slice": "undo",                // "undo" | "view" | "host"
+  "minted": ["rune_9f2c…"] }      // ids that exist after and did not before
+```
+
+- **`command` is canonical.** `rm x` and `rune rm x` are one change and MUST NOT
+  record as two.
+- **`minted` is what makes an entry worth more than its text.** Ids come from the
+  PRNG (§3.1), so replaying the *string* produces different state; replaying the
+  *entry* does not. For an `undo`/`redo` entry these ids are **restored** rather
+  than freshly minted — the `verb` says which.
+- **`slice`** names where the change landed: `undo` (mantles/active), `view`
+  (`placement`, §3.2), or `host` (nothing in the state document — it went out
+  through the holiday boundary).
+
+**What records.** Every **successful** top-level command that is mutating, a view
+mutation, `undo`/`redo`, or effectful. A failed command records nothing: it
+changed nothing, and a record of attempts is a different artifact (§9's log
+already is one). `batch` records **once**, like its undo frame.
+
+Effectful commands record **even though a replay consumer must skip them**,
+because otherwise `pure` would be a constant `true` and a consumer could not
+distinguish *"nothing effectful happened"* from *"something effectful happened
+and was not recorded."* The second silently drops a deploy from a replay.
+
+**Cost.** Filling `minted` requires an id-set image before and after each recorded
+command, so a journaled mutation is **O(document)** where an unjournaled one is
+not. Measured on the reference core: 2000 sequential `rune new` calls into one
+mantle took 9.9s unjournaled and 16.4s journaled. That shape — linear per command,
+quadratic to build a document — is the price of a classification that cannot
+silently drift. An implementation MAY skip the walk for commands it can prove
+cannot change the id set, but MUST NOT let that proof be a maintained list of verbs
+whose omission fails silently.
+
+The images exclude two subtrees, and both exclusions are normative because
+including either produces a wrong answer rather than a slow one:
+
+- **`content`** — opaque by contract (§3.2). An application field named `id` is not
+  an identity the core minted.
+- **`_baseline`** — a *snapshot* of `mantles` (§7 dirty-tracking), not live content.
+  An id inside it records that an identity existed, not that one exists. Counting
+  it makes `save` report every id in the document as freshly minted.
+
+**ABI:** `vc_set_journal`, `vc_export_journal`, `vc_journal_clear`. Journaling
+does not relax §6's threading rule.
 
 ---
 
@@ -485,12 +635,13 @@ expects.)
 | `status [--dirty]` | change set vs `_baseline`; `--dirty` → `ok` reflects dirtiness (for scripts) |
 | `diff [<ref>]` | saved-vs-working diff |
 | `history [--tail N]` | undo-stack labels |
+| `journal [on\|off\|clear]` | the §6.2 command record; bare = read it (`data` = the entries), `on`/`off` toggle recording, `clear` drops the entries. Neither mutating nor effectful, so reading or toggling the record never appears in it |
 | `glyphs` | registered glyphs |
 | `axes [all]` | this mantle's tags bucketed by fundamental axis (`all` = list the axes) |
 | `mantles` | all mantles (active marked) |
 | `domain` | the active domain's fields |
 | `where` | active mantle + domain (pwd-like) |
-| `validate [--quiet]` | check duplicate names, unregistered glyphs, dangling layout edges |
+| `validate [--quiet]` | check duplicate names, unregistered glyphs, and layout-edge endpoints — classifying an unresolved one as **cross-kind** (names a mantle) or **dangling** (names nothing), §3.7. `data` = the problem strings |
 | `links [<ref>]` | list links (§3.7), optionally only those touching `<ref>`; `data` = link objects |
 
 **Mutate (each undoable):**
@@ -543,12 +694,17 @@ These are the dispatcher surface of Void Core's three pure transformation layers
 `{ok, lines, data}` contract. They are pure (no I/O / clock / RNG); the mutating ones write
 their result back through the verbs above (`setjson` / `tag`), so they stay undoable.
 
+A host reads §6's verb tables before it reads the implementation-status paragraph
+under them, so a tabulated verb answering `unknown verb` reads as a bug for as long
+as it takes to find that paragraph. The marking is therefore repeated **in every row**
+(Void Unity, 2026-08-28, who lost the detour):
+
 | verb | layer | meaning |
 |---|---|---|
-| `scry [<tagexpr>] [--select <name>] [--limit N] [--locale/-audience/-role/-date V]` | Scry | **read**, no mutation: project a view over the active mantle. Bare form filters by tag-expression → `data` = matching names; `--select` runs a registered named projection (its own where/sort/limit) under an optional `Context` → `data` = projected views |
-| `temper [<ref>]` | Temper | **mutate**: normalize one rune (or all in the active mantle) to canonical form via the registered, idempotent Temper pass; writes back only what changed. `data` = changed refs |
-| `materialize <ref> <field>=<value> …` | Scry | **mutate**: freeze resolved values into a rune's content (the explicit, undoable "bake"). `data` = changed refs |
-| `reduce [--into <name>] [--commit]` | Reduce | **derive**: build the active mantle's interaction net (port indices ride each edge's `relation` as `"i:j"`), rewrite it to normal form with the registered/loaded reducer, return the derived mantle in `data` (source untouched — pure + previewable); `--commit` also installs it as a live mantle |
+| `scry [<tagexpr>] [--select <name>] [--limit N] [--locale/-audience/-role/-date V]` | Scry **[seam]** | **read**, no mutation: project a view over the active mantle. Bare form filters by tag-expression → `data` = matching names; `--select` runs a registered named projection (its own where/sort/limit) under an optional `Context` → `data` = projected views |
+| `temper [<ref>]` | Temper **[seam]** | **mutate**: normalize one rune (or all in the active mantle) to canonical form via the registered, idempotent Temper pass; writes back only what changed. `data` = changed refs |
+| `materialize <ref> <field>=<value> …` | Scry **[seam]** | **mutate**: freeze resolved values into a rune's content (the explicit, undoable "bake"). `data` = changed refs |
+| `reduce [--into <name>] [--commit]` | Reduce **[seam]** | **derive**: build the active mantle's interaction net (port indices ride each edge's `relation` as `"i:j"`), rewrite it to normal form with the registered/loaded reducer, return the derived mantle in `data` (source untouched — pure + previewable); `--commit` also installs it as a live mantle. A rune whose glyph is declared a **box** is spliced in as *that mantle's* net, so a mantle can be a rune inside another mantle and reduction runs through the boundary (`conformance/reduce/README.md` §7) |
 
 **Implementation status.** The layers are implemented **once** (the tested Python modules
 `scry/`, `temper/`, `reduce/`) and exposed via a dispatcher **seam** —
@@ -563,6 +719,12 @@ also offers an opt-in **temper-on-write** mode
 (`Dispatcher.temper_on_write()`): the registered Temper pass runs automatically after every
 mutating verb, re-normalizing the rune(s) it targeted — so canonical-form invariants hold
 even for **raw** dispatcher edits, not only an app's high-level methods.
+
+The Reduce ruleset's three rule kinds are `annihilate` and `commute` (structural) and
+`patch` (content: a pair meets, one side survives with patched content, keeping its id,
+glyph, arity, tags and wiring). A rune whose glyph is declared a **box** is spliced in as
+that mantle's net, so a mantle can be a rune inside another mantle
+(`conformance/reduce/README.md` §7).
 
 Temper passes, named Selectors, and the Reduce ruleset may be **authored as data**
 (`voidcore.spec`: `temper_from_spec` / `selector_from_spec` / `reducer_from_spec`) rather
@@ -585,6 +747,19 @@ line is a dispatcher command.
 the C core and the JS oracle:
 
 - **Comments** `# …`; statement separators newline or `;`; blocks `{ }`.
+  A **CR ends a statement exactly as LF does** — `\r\n`, `\n` and a bare `\r` are
+  all line terminators outside a quoted run, so a CRLF-authored script means what
+  it reads as. Inside a quoted run a CR is data like any other byte. Normative,
+  and stated because the alternative is not "LF only" but silent corruption: a
+  reader that treats CR as content returns `"ok\r"` from `return ok`, makes
+  `assert a == a` false, and reports neither — while *numeric* comparison
+  tolerates it, so the same script passes or fails depending on which kind of
+  value a line happens to compare (Void Unity, 2026-08-27, from a Windows host
+  where CRLF is what an editor, a `TextAsset` or a clipboard hands you). An
+  implementation MUST NOT normalize newlines *before* the tokenizer either; a
+  reader that translates its own input cannot test what a host will be handed —
+  which is how this survived a conformance suite. Case `15-crlf.vs` is stored
+  with CRLF on purpose and pins the rule.
 - **Variables** `let x = <expr>`; interpolation `$x` / `${x}`.
 - **Command capture** `let d = $(status --json)` — `$( … )` runs a command;
   with `--json` it captures `data`, else stdout text.
@@ -748,11 +923,27 @@ against the Python seam's test suite (`voidcore/dispatch_test.py` and siblings),
 **[ext]** features (§10) are tested separately and only against implementations
 that claim them (Hormiga).
 
+**A runner MUST deliver each case byte-for-byte** — read as bytes, decoded
+without newline translation. This is normative because it failed: the reference
+runner used Python text mode, whose universal-newline translation rewrote CRLF to
+LF before the library saw a byte, so no case could observe how the core treats a
+CR *by construction* — while `14-journal.vs` sat in the repository with CRLF,
+green here and red for the second implementation that read it faithfully (Void
+Unity, 2026-08-27). A suite that normalizes its own inputs is not testing what a
+host will be handed. Case `15-crlf.vs` is stored with CRLF deliberately and is
+marked `-text` in `.gitattributes` so no checkout can quietly repair it.
+
 ---
 
 ## 12. Open spec questions
 - Undo across holiday-backed data: the boundary between undoable owned-mantle
   edits and non-undoable external writes (§10) needs defining.
+  **Half-answered by §6.2 (0.2.8):** *which* commands cross that boundary is now
+  normative (the pure/effectful classification), so a consumer can always tell an
+  external write from an owned-mantle edit. What §6.2 does **not** answer is what
+  `undo` should *do* about one — an effectful command is recorded as effectful and
+  is still snapshot-undoable on the model side, which takes back the edit and not
+  the write. Naming that honestly is the remaining half.
 - **Scope of the undoable slice.** It is `mantles` + `active` today, which leaves
   `bindings` outside it — so `mantle rm`/`rename` (§3.4) cannot repoint or drop
   cross-mantle bindings without creating a mutation `undo` only half-restores.
@@ -771,6 +962,31 @@ that claim them (Hormiga).
   locally — the same reason a git remote's filesystem path is not cloned. Core's undo
   slice may keep `active` even though a sync slice must not; noticing that they are
   allowed to differ is the useful move.
+- **Cross-entity (rune↔mantle) links** — §3.7's planned extension, still blocked on
+  *scope of the undoable slice* above (an edge naming another mantle is the first edge
+  whose meaning lives outside its own mantle, so `mantle rm` + `undo` over one is the
+  same question bindings already ask) — but **no longer blocking anyone**, which changes
+  its priority rather than its answer.
+  The forcing use case was Void Unity's Rung 5, *mantle as agent*. The guess recorded
+  here on 2026-08-29 — that the change it needed was a boxing rule in the **Reduce
+  adapter** rather than in the link graph, because the encapsulation it wanted (*the
+  inner rule cannot reach the outer silk because there is no active pair, not because a
+  filter said no*) is a statement about the **net** — was right, and shipped in 0.2.11 at
+  the seam: `reduce/box.py`, `conformance/reduce/README.md` §7, cases 17-20, and
+  `okf/design/mantle-composition.md`. A **box** is a glyph declared in the reduce spec to
+  mean "a rune of this glyph *is* that mantle"; it is a fact about a **rule set**, not a
+  reference stored in the state document, so it needed no new primitive and asked the
+  undoable-slice question not at all.
+  What a rune↔mantle *link* would still be for is the passive-knowledge case — recording
+  that a rune relates to a mantle, which is what links are (§3.7's first bullet: storing
+  one does nothing). That is a smaller job than it looked, and the constraint recorded
+  with it held: a boxed mantle's ports are **the free ports of its net**, and a
+  declaration may only order them.
+- **A host-verb registration seam** so `help` lists verbs a host added at the
+  dispatcher seam. Two hosts have now built the §7.2 superset dispatcher (Void Unity's
+  `reduce`, 2026-08-28), and in both the added verb works and is invisible to `help` —
+  so an in-app console shows a `help` that omits a working verb. Neither asked for it;
+  both said they would print their own help. Noted, not scheduled.
 - Whether `layout`/`rules`/`relations` stay reserved or get a real consumer.
 - **`layout.edges` endpoints are mutable names** (§3.7), which `rename` repoints
   (§3.4). Coherent for one user; across peers, two who concurrently rename a rune and

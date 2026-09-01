@@ -8,12 +8,23 @@
  * The user wants to explore a richer "commander-based architecture" (reified
  * command objects with explicit inverses) inside the core — see
  * the OKF design page okf/design/command-architecture.md. That is intentionally NOT done here yet.
- */
+ *
+ * What IS done, in 0.2.9, is admitting what a memento costs and handing the bill
+ * to whoever can decide whether to pay it. Void Unity measured it (2026-08-28):
+ * with `mantles` holding a live world rather than a document, a `set` at 4 000
+ * runes cost 27.6 ms — longer than a 60 Hz frame — and building that world was
+ * quadratic, because every `rune new` deep-copies every rune already there. The
+ * journal had an off switch from the day it shipped and undo did not, which made
+ * "a record kept for a host that might want it" mandatory for hosts that never
+ * would. `vc_set_undo` / `vc_set_undo_depth` close that asymmetry. They do not
+ * make the memento cheaper — only reification will — but they make the
+ * configuration Void Unity needs (an authoring manager with undo, a world
+ * manager without) expressible instead of impossible. */
 #include "vc_internal.h"
 #include <stdlib.h>
 #include <string.h>
 
-#define VC_UNDO_MAX 200 /* bounded stack (SPEC §6 reference impl) */
+#define VC_UNDO_MAX 200 /* default bound (SPEC §6 reference impl) */
 
 static cJSON *dup_field(cJSON *state, const char *key) {
   return cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(state, key), 1);
@@ -49,19 +60,32 @@ static void stack_push(vc_undo_frame **arr, int *count, int *cap, vc_undo_frame 
   (*arr)[(*count)++] = f;
 }
 
+/* Drop the oldest frames of a stack until it fits `depth`. */
+static void stack_trim(vc_undo_frame *arr, int *count, int depth) {
+  if (depth < 1) depth = 1;
+  if (*count <= depth) return;
+  int drop = *count - depth;
+  for (int i = 0; i < drop; i++) vc_undo_frame_free(&arr[i]);
+  memmove(&arr[0], &arr[drop], (size_t)(*count - drop) * sizeof(vc_undo_frame));
+  *count -= drop;
+}
+
+/* Enforce the current depth on BOTH stacks. Called on commit and whenever the
+ * host lowers the depth — a depth change that left 200 world-sized frames
+ * resident until the next mutation would not be a depth change. */
+void vc_undo_trim(VC_Manager *m) {
+  int depth = m->undo_depth > 0 ? m->undo_depth : VC_UNDO_MAX;
+  stack_trim(m->undo, &m->undo_count, depth);
+  stack_trim(m->redo, &m->redo_count, depth);
+}
+
 void vc_undo_commit(VC_Manager *m, vc_undo_frame *snap) {
   /* a new mutation invalidates the redo history */
   for (int i = 0; i < m->redo_count; i++) vc_undo_frame_free(&m->redo[i]);
   m->redo_count = 0;
 
   stack_push(&m->undo, &m->undo_count, &m->undo_cap, *snap);
-
-  if (m->undo_count > VC_UNDO_MAX) { /* drop the oldest frame */
-    vc_undo_frame_free(&m->undo[0]);
-    memmove(&m->undo[0], &m->undo[1],
-            (size_t)(m->undo_count - 1) * sizeof(vc_undo_frame));
-    m->undo_count--;
-  }
+  vc_undo_trim(m);
 }
 
 /* The view slice (SPEC §3.2/§6): `placement` is OUTSIDE the undo slice. Before a
@@ -138,6 +162,8 @@ cJSON *vc_history(VC_Manager *m) {
     cJSON_AddItemToArray(arr, cJSON_CreateString(m->undo[i].label));
   return arr;
 }
+
+int vc_undo_default_depth(void) { return VC_UNDO_MAX; }
 
 void vc_undo_clear(VC_Manager *m) {
   for (int i = 0; i < m->undo_count; i++) vc_undo_frame_free(&m->undo[i]);

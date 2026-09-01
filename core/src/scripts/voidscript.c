@@ -64,7 +64,16 @@ static char *read_header(const char *s, int *p, int end) {
       }
       continue;
     }
-    if (!q && (ch == '\n' || ch == ';' || ch == '{' || ch == '}')) break;
+    /* CR ends a statement exactly as LF does. skip_sep() already treats it as a
+     * separator; this reader used to treat it as CONTENT, and that disagreement
+     * was the whole bug: a CRLF-authored script carried the CR into the value, so
+     * `return ok` returned "ok\r" and `assert a == a` compared unequal -- with no
+     * error either way (Void Unity, 2026-08-27, from a Windows host where CRLF is
+     * simply what a text editor hands you). Two scanners disagreeing about one
+     * character is the SPEC 6.1 lesson in a different costume. Inside a quoted run
+     * a CR is still data: vc_quote_step below is the only path that sees it. */
+    if (!q && (ch == '\n' || ch == '\r' || ch == ';' || ch == '{' || ch == '}'))
+      break;
     int emit, used = vc_quote_step(s + *p, &q, &emit);
     if (used == 0) break;
     if (*p + used > end) used = end - *p;
