@@ -15,7 +15,7 @@
 
 /* The ONE version string — vc_version() and the `version` verb both return it.
  * (Bump here; 0.2.2/0.2.3 drifted because it was duplicated in vc_manager.c.) */
-#define VC_VERSION_STR "0.2.12"
+#define VC_VERSION_STR "0.2.13"
 
 /* An undo frame: a snapshot of the undoable slice of state (mantles + active),
  * labelled by the command that produced it (SPEC §6). v0 is memento-based; the

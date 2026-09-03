@@ -49,7 +49,7 @@ Then the four language-neutral suites (SPEC §11) against that fresh build, plus
 the OKF bundle's own conformance check:
 
 ```bash
-python conformance/run.py          # 16/16  core dispatcher cases (Voidscript)
+python conformance/run.py          # 17/17  core dispatcher cases (Voidscript)
 python conformance/reduce/run.py   # 25/25  Reduce executor cases (pure JSON)
 python conformance/temper/run.py   #  8/8   Temper cases
 python conformance/scry/run.py     #  8/8   Scry cases

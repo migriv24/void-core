@@ -18,11 +18,18 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
     res_set_data(res, cJSON_CreateString(VC_VERSION_STR));
 
   } else if (!strcmp(v, "help")) {
+    /* HAND-MAINTAINED, and therefore drift-prone: Void Hormiga found `link`
+     * missing here on 2026-09-02, and the same hole had swallowed `links`,
+     * `unlink` and `journal`. The rest of the briefing is introspected from live
+     * registries; this list is not, because the router is an if/else chain with
+     * nothing to enumerate. `describe_verbs_test.py` now diffs this string
+     * against every verb the families actually answer to, so the next omission
+     * fails a test instead of costing an agent an hour. Keep them in sync. */
     const char *verbs =
         "version help glyphs mantles mantle use where rune ls find describe get "
         "set setjson tag facet place axes cat tree validate export undo redo history "
-        "status diff revert save build deploy preview effect log config "
-        "bind bindings unbind batch relate unrelate related rule script";
+        "journal status diff revert save build deploy preview effect log config "
+        "bind bindings unbind batch link unlink links relate unrelate related rule script";
     res = res_make(1);
     res_line(res, "verbs: %s", verbs);
     res_line(res, "posix aliases: cd pwd rm mv cp mkdir rmdir grep man ? quit dump");

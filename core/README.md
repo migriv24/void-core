@@ -226,6 +226,15 @@ Things that will look like Void Core broke your build and are not Void Core.
   did at 0.2.10. Compare component-wise. (Reported by Void Maiz, 2026-08-29, who hit it
   in `embed_smoke` and asked that it be written down once for the hosts behind them.)
 
+* **`related` is about TAGS; `links` is about EDGES.** `link a b` writes
+  `layout.edges`; `relate x y` writes `tags[x].near`. They are different graphs and
+  neither verb reads the other's. Because a rune's name doubles as a tag, `related
+  <rune>` is accepted and answers about tag proximity — so after `link`, `related`
+  correctly reports nothing. Use `links <ref>` to see edges. Since 0.2.13 the empty
+  answer says so itself when the ref names a rune that has edges, rather than only
+  `(no neighbors)`. (Reported by Void Hormiga, 2026-09-02, after a field agent read
+  the empty answer as a failed `link` and wrote the link twice.)
+
 ## Deliberately deferred (research-track, not gaps)
 - **The interaction-net rule reducer.** Not in the C library *by design*: the
   executor is built at the Python seam (`../reduce/`, the `reduce` verb — see

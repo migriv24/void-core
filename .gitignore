@@ -50,3 +50,13 @@ venv/
 # only be a stale artifact — one for express/multer, unused by any code in
 # src/, survived from v0.1.0 until the 0.2.12 sweep removed it.
 package-lock.json
+
+# ── INTER-PROJECT CORRESPONDENCE (2026-09-02) ───────────────────────────────
+#
+# `MESSAGE_FOR_<PROJECT>_<topic>-<date>.md` is how the sibling agents hand each
+# other bug reports and replies: the sender writes the file into the RECIPIENT's
+# repo root. They are working correspondence, not project artifacts, and a
+# `git add -A` while one is sitting here would publish it. What is durable from a
+# message belongs in okf/log.md, a conformance case, and the code — where the
+# 2026-09-02 `related` report from Void Hormiga ended up.
+MESSAGE_FOR_*.md

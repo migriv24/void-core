@@ -91,6 +91,7 @@ jobs:
           python bindings/python/attribution_test.py
           python bindings/python/journal_test.py
           python bindings/python/undo_control_test.py
+          python bindings/python/describe_verbs_test.py
           python holidays/okf/manifest_test.py
           python holidays/okf/theme_test.py
           python conformance/reduce/run.py

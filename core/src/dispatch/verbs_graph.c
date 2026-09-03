@@ -7,6 +7,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Strict numeric parse, matching the coordinate check in `place`: the WHOLE
+ * argument must be a number. Returns 1 and (when `out` is given) the value, or
+ * 0 if the string is anything else — a flag, a typo, a bare word. Callers must
+ * not fall back to atof(), which answers 0.0 for all three. */
+static int vc_parse_number(const char *s, double *out) {
+  if (!s || !*s) return 0;
+  char *end = NULL;
+  double d = strtod(s, &end);
+  if (!end || end == s || *end != 0) return 0;
+  if (out) *out = d;
+  return 1;
+}
+
 cJSON *vc_verbs_graph(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
   cJSON *res = NULL;
   cJSON *err = NULL;
@@ -93,8 +106,18 @@ cJSON *vc_verbs_graph(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       res = err;
     } else if (a.count < 3) {
       res = res_fail("usage: relate <tagA> <tagB> [weight]");
+    } else if (a.count >= 4 && !vc_parse_number(a.items[3], NULL)) {
+      /* Void Hormiga, 2026-09-02: `relate a b --relation friend` used to reach
+       * atof("--relation") == 0.0 and write the association with weight ZERO —
+       * "not near at all" — while reporting ok. The weight is positional here;
+       * anything that is not a number is a mistake, and saying so beats
+       * silently recording the opposite of what was meant. */
+      res = res_fail("relate: weight must be a number, got '%s' "
+                     "(usage: relate <tagA> <tagB> [weight]; `relate` takes no flags)",
+                     a.items[3]);
     } else {
-      double w = a.count >= 4 ? atof(a.items[3]) : 1.0;
+      double w = 1.0;
+      if (a.count >= 4) vc_parse_number(a.items[3], &w);
       cJSON *tags = cJSON_GetObjectItemCaseSensitive(mt, "tags");
       set_near(tags, a.items[1], a.items[2], w);
       set_near(tags, a.items[2], a.items[1], w);
@@ -135,7 +158,30 @@ cJSON *vc_verbs_graph(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
           cJSON_AddNumberToObject(out, e->string, e->valuedouble);
         }
       }
-      if (cJSON_GetArraySize(out) == 0) res_line(res, "(no neighbors)");
+      if (cJSON_GetArraySize(out) == 0) {
+        /* Void Hormiga, 2026-09-02: "(no neighbors)" is a correct answer that
+         * reads as a false one. `related` is the TAG-proximity verb, but a
+         * rune's name doubles as a tag, so a caller who means `links` gets a
+         * confident empty answer and concludes the edge was never written.
+         * When the ref names a rune that actually has edges, point at the verb
+         * that reports them. Costs one lookup, and only on the empty path. */
+        cJSON *rr = vc_mantle_find_rune(mt, a.items[1]);
+        int nlinks = 0;
+        if (rr) {
+          const char *rn = vc_rune_name(rr);
+          cJSON *layout = cJSON_GetObjectItemCaseSensitive(mt, "layout");
+          cJSON *edges = layout ? cJSON_GetObjectItemCaseSensitive(layout, "edges") : NULL;
+          cJSON *e = NULL;
+          cJSON_ArrayForEach(e, edges) {
+            const char *f = gstr(e, "from"), *tt = gstr(e, "to");
+            if (!strcmp(f, rn) || !strcmp(tt, rn)) nlinks++;
+          }
+          if (nlinks > 0)
+            res_line(res, "(no tag neighbors; '%s' is a rune with %d link%s - try `links %s`)",
+                     rn, nlinks, nlinks == 1 ? "" : "s", rn);
+        }
+        if (nlinks == 0) res_line(res, "(no neighbors)");
+      }
       res_set_data(res, out);
     }
 

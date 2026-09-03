@@ -59,6 +59,7 @@ one case whose bytes are the point.
 | `14-journal.vs` | §6.2 | the command journal — off by default, `minted` ids, `pure`/`slice` classification, canonical `command`, failed commands recording nothing |
 | `15-crlf.vs` | §8 | **stored with CRLF on purpose** — a CR is a line terminator, not content: values don't carry it, string comparison sees through it, and a line ending inside a quoted run is still data |
 | `16-validate-endpoints.vs` | §3.7, §7.2 | `validate` classifies an unresolved link endpoint — **cross-kind** (names a mantle) vs **dangling** (names nothing), each side, both at once, and the classification following the state document rather than being stored on the edge |
+| `17-related-signpost.vs` | §7.2 | `related` is the TAG verb: its EMPTY answer names `links` when the ref is a rune that has edges, and stays `(no neighbors)` for a plain tag or an edgeless rune — plus `relate` refusing a non-numeric weight, which used to reach `atof("--relation") == 0.0` and write the association at weight zero while reporting ok |
 
 Not covered here (tested elsewhere or host-dependent): the §9 adapter/effect seam
 (`bindings/python/effect_test.py`), §9 attribution + the mutation spine
