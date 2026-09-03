@@ -90,10 +90,10 @@ are safe anywhere.
 
 ## Verbs implemented
 Read: `version help glyphs mantles where rune(ls) ls find describe get cat tree
-validate axes status diff history log bindings links related export`
+validate axes status diff history log bindings links values measure related export`
 Mutate: `mantle new` · `use` · `rune new|rm|rename|move|dup` · `set` · `setjson` · `facet` · `tag` ·
-`link` · `unlink` · `relate` · `unrelate` · `rule add|ls|rm|clear` · `undo` · `redo` · `revert` ·
-`batch` · `bind` · `unbind`
+`glyph declare|undeclare` · `measure` · `link` · `unlink` · `relate` · `unrelate` ·
+`rule add|ls|rm|clear` · `undo` · `redo` · `revert` · `batch` · `bind` · `unbind`
 System: `config [get <k> | set <k> <v>]` — session/host meta (`state.config`), scalar-coerced
 (true/false/number/string), **outside the undo slice** (a live `config set` never touches
 undo history)
@@ -225,6 +225,21 @@ Things that will look like Void Core broke your build and are not Void Core.
   written and can only ever fire once a component reaches double digits, which the minor
   did at 0.2.10. Compare component-wise. (Reported by Void Maiz, 2026-08-29, who hit it
   in `embed_smoke` and asked that it be written down once for the hosts behind them.)
+
+* **A glyph a host only REGISTERS does not travel; one it DECLARES does.**
+  `vc_register_glyph` is host config and is deliberately not exported, so a document
+  whose types are only registered carries its runes but not their meaning — open it
+  elsewhere and the content is present in the document and unreachable through the
+  projection. `glyph declare '<json>'` writes the descriptor into `state.glyphs`,
+  which exports, undoes and journals like any other change. A declaration shadows a
+  registration of the same name; `glyphs` reports each descriptor's `source`. (Asked
+  for by Void Hormiga, 2026-09-03: it was the one change blocking a declared-type
+  feature there.)
+
+* **Read your schema from `glyphs`, not from a second copy.** `glyphs` returns the
+  descriptor with `fields`, `kind` and `source` resolved — that is the host contract,
+  and it exists so no host has to keep a hand-maintained duplicate of its own field
+  lists.
 
 * **`related` is about TAGS; `links` is about EDGES.** `link a b` writes
   `layout.edges`; `relate x y` writes `tags[x].near`. They are different graphs and

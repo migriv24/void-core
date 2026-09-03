@@ -70,7 +70,10 @@ Or take a prebuilt library from a **GitHub Release**: every `v*` tag publishes
 from voidcore import VoidCore          # bindings/python/voidcore.py
 
 vc = VoidCore()                        # or VoidCore(state=<state document>)
+# a type the host owns (config: fast, not exported)
 vc.register_glyph({"glyph": "note", "label": "Note", "editor": "form", "fields": ["text"]})
+# a type the DOCUMENT owns (travels with the data, undoes like any change)
+vc.declare_glyph({"glyph": "note", "label": "Note", "editor": "form", "fields": ["text"]})
 vc.set_effect_handler(lambda op, args: ...)   # save/deploy/build/preview + `effect <op>`
 
 vc.dispatch("mantle new demo")
@@ -102,8 +105,13 @@ command is read as the command and fails — put it last.
 ## The model in one breath
 
 - **rune** — atomic editable unit: a `spirit` (frozen real-ID + human name), six
-  `facets` (who/what/when/where/why/how), a `glyph` (how it's edited), `content`,
-  `tags`.
+  `facets` (who/what/when/where/why/how), a `glyph` (what it is), `content`, `tags`.
+  A rune is an **entity**, an **act** or a **measure** — a thing, a change, or a
+  dimension something has an amount of. Its glyph says which; the default is entity.
+- **glyph** — a rune's declared type: its content `fields`, its `kind`, how its
+  numbers should be read, and — separately — a `presentations` map keyed by modality.
+  Declare one into the document (`glyph declare`) and it travels with the data;
+  register one on the manager and it stays host config.
 - **mantle** — a group of runes over a domain, plus a layout graph + rule set.
 - **domain** — the real hosting target (repo, build/deploy/preview commands, port).
 - **tag** — organizational metadata; a rune's name doubles as a tag.
@@ -112,8 +120,9 @@ command is read as the command and fails — put it last.
 ## Command surface
 
 `describe ls tree get find cat status diff history journal glyphs axes mantles
-domain validate where links · set setjson facet tag rune link unlink mantle bind
-bindings unbind undo redo batch · place · save deploy build preview effect
+domain validate where links values measure · set setjson facet tag rune glyph
+link unlink mantle bind bindings unbind undo redo batch · place · save deploy
+build preview effect
 revert · scry temper materialize reduce (seam) · script log use config export
 import help version exit`
 

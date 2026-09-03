@@ -1,15 +1,18 @@
 ---
 type: Concept
 title: Links
-description: Loose, non-reactive connections between runes (and, later, mantles/holidays) — the passive substrate under layout edges, bindings, and tag references.
+description: Loose, non-reactive connections between runes (and, later, mantles/holidays) — the passive substrate under layout edges, bindings, and tag references; a weight may be a strength or an attribute value.
 resource: core/src/model/mantle.c
 tags: [status:current, audience:dev, audience:library, confidence:verified, foundation]
-timestamp: 2026-08-30T00:00:00Z
+timestamp: 2026-09-03T00:00:00Z
 ---
 
 A **link** is a loose connection between two entities. It is directed (or not),
 optionally labeled with a `relation`, optionally `weight`ed, and **does nothing on its
 own**. Links are the *passive substrate*; behavior is a separate layer.
+
+A link is still inert after 0.2.14. What changed is what a `weight` may *mean* — see
+[a weight is a strength, or a value](#a-weight-is-a-strength-or-a-value) below.
 
 A first-class link primitive now exists in the [dispatcher](/concepts/dispatcher.md):
 `link <from> <to> [--relation r] [--weight w] [--undirected]`, `unlink`, and a
@@ -57,6 +60,39 @@ dangling-tolerant. So OKF is not adding links to Void Core — it is a *view* of
 links that already (informally) exist. This is the entry in the
 [glossary](/references/voidcore-glossary.md): OKF link ⇄ Void Core link.
 
+# A weight is a strength, or a value
+
+Since 0.2.14, when an edge's `to` endpoint is a rune whose glyph is
+`kind: "measure"` ([rune kinds](/concepts/rune.md)), the edge is an **attribute
+assertion**: its weight *is* the value of that attribute, and the measure rune
+supplies the unit.
+
+```
+player --[weight 5.0]--> speed          "the player's speed is 5 m/s"
+```
+
+- **The direction is normative.** `to` names the measure. An assertion has an owner
+  and a dimension, and they are not interchangeable.
+- **This is recognition, not coercion.** `weight` was already a number defaulting to
+  `1.0`; an edge to a non-measure rune is exactly what it always was. Fields stay,
+  and an application whose numbers are read only by renderers should keep using them.
+- **What it buys.** A bare `5.0` in a field is a number with no dimension; an edge to
+  `speed` is a number that knows what it measures, so dimensional analysis comes out
+  of the graph. Cross-entity questions — *"everything with a speed"*, *"the fastest
+  thing here"* — become structural rather than a field scan. And the value sits where
+  a rule that produces new structure can see it, which is what lets behavior emerge
+  from the graph rather than from code that reads fields.
+- **Which numbers belong here** is decided on [quantity](/concepts/quantity.md)'s
+  page: a weight is a *magnitude*, so this is right for ratio-scale vector quantities
+  and wrong for points. *Nobody says "half of September 3rd."*
+
+Read them with `values [<ref>] [--measure <name>]`.
+
+**Two weighted graphs now mean different things.** An edge weight is a strength or a
+value; `relate` writes `mantle.tags[<tag>].near`, which is also weighted and always
+means *similarity* ([tag system](/concepts/tag-system.md)). Different vertices,
+different meaning, and nothing joins them.
+
 # An edge carries three things — reify anything else
 
 An edge is **`relation`, `direction`, and `weight`**, and that is the whole vocabulary.
@@ -73,11 +109,21 @@ is usually a noun the model was missing. (Reported 2026-08-17; the rule was alre
 and simply not written down, so a host reading this page reasonably tried to add a second
 attribute.)
 
+This is also the answer to *"should `weight` become a small numeric array?"*, which
+values-on-edges raises: a position or a velocity is several components that transform
+as a unit, and three edges to `x`/`y`/`z` lose that they are one vector. No — the rule
+above already covers it, a multi-component quantity is a rune, and a position was
+never a weight anyway (it is a *point*, which has no magnitude) and already has its
+own slice in `placement`.
+
 # Status
 
 `current` for the **rune↔rune** primitive (verified 2026-06-18): first-class
 `link`/`unlink`/`links` verbs over `layout.edges`, with `relation`/`weight`/`directed`
-and dangling-tolerance, repoint-on-rename and drop-on-remove (SPEC §3.7). This is what
+and dangling-tolerance, repoint-on-rename and drop-on-remove (SPEC §3.7). Also
+`current` (0.2.14): a weight read as an attribute's **value** when its target is a
+measure rune, plus the `values` verb that reports them (SPEC §3.7.1, conformance
+`19-kinds-and-values.vs`). This is what
 the [OKF engine](/components/okf-engine.md) maps concept links onto. The reactive
 counterpart (a link that fires) is a `binding`; the weighted
 [tag graph](/concepts/tag-system.md) is the tag↔tag analogue.

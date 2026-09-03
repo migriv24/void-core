@@ -15,16 +15,23 @@
 
 /* The ONE version string — vc_version() and the `version` verb both return it.
  * (Bump here; 0.2.2/0.2.3 drifted because it was duplicated in vc_manager.c.) */
-#define VC_VERSION_STR "0.2.13"
+#define VC_VERSION_STR "0.2.14"
 
-/* An undo frame: a snapshot of the undoable slice of state (mantles + active),
- * labelled by the command that produced it (SPEC §6). v0 is memento-based; the
+/* An undo frame: a snapshot of the undoable slice of state
+ * (mantles + active + glyphs), labelled by the command that produced it (§6). v0 is memento-based; the
  * deeper "reified command" idea is parked in notes/command-architecture.md. */
 typedef struct {
   char *label;
   char *who;      /* config.actor at capture time, or NULL (SPEC §9 attribution) */
   cJSON *mantles; /* duplicated snapshot */
   cJSON *active;  /* duplicated snapshot */
+  /* 0.2.14 widened the slice by one key: DECLARED glyphs (SPEC §2, §3.3.3).
+   * A declaration is a schema, and a schema is authored content — it travels
+   * with the document and is what makes the runes readable — so `glyph declare`
+   * has to undo like `rune new`, not sit outside history like `config`. The
+   * memento cost is O(number of declared types), which is bounded by the app's
+   * vocabulary rather than by its data. */
+  cJSON *glyphs;  /* duplicated snapshot of state.glyphs */
 } vc_undo_frame;
 
 /* A journal entry: one mutating command, reified (SPEC §6.2). Where an undo
@@ -36,7 +43,7 @@ typedef struct {
   char *verb;    /* canonical verb, for filtering without re-splitting */
   char *who;     /* config.actor at the time, or NULL (SPEC §9) */
   int pure;      /* 1 = model-only; 0 = crossed the holiday boundary (§6.2) */
-  char *slice;   /* "undo" (mantles+active) or "view" (placement) */
+  char *slice;   /* "undo" (mantles+active+glyphs) or "view" (placement) */
   cJSON *minted; /* array of ids minted by this command (never NULL) */
 } vc_journal_entry;
 
@@ -145,7 +152,34 @@ const char *vc_axis_of(const char *tag);
 cJSON *vc_glyphs_new_builtin(void);              /* registry with the 7 built-ins */
 cJSON *vc_glyph_find(cJSON *glyphs, const char *name);          /* def or NULL */
 int vc_glyph_register(cJSON *glyphs, const char *glyph_json);   /* 1 on success */
+/* Same, but says WHY it refused — the message the `glyph declare` verb reports. */
+int vc_glyph_register_err(cJSON *glyphs, const char *glyph_json, char *err,
+                          size_t errsz);
 cJSON *vc_glyph_default_content(const cJSON *glyphdef);         /* {field:""...} */
+
+/* The two registries (SPEC §3.3.3). `state.glyphs` holds DECLARED descriptors —
+ * part of the document, so a bundle carries its runes AND their meaning; the
+ * manager holds REGISTERED ones (built-ins + vc_register_glyph). A declaration
+ * shadows a registration of the same name: it is the one that traveled with the
+ * data. Every reader of a rune's type goes through vc_glyph_lookup. */
+cJSON *vc_glyphs_declared(cJSON *state);        /* ensure + return state.glyphs */
+cJSON *vc_glyph_lookup(struct VC_Manager *m, const char *name); /* declared|host */
+const char *vc_glyph_source(struct VC_Manager *m, const char *name);
+/* The descriptor a HOST reads: the stored object with `fields`, `kind` and
+ * `source` resolved, so one shape answers whatever the author wrote. */
+cJSON *vc_glyph_resolved(struct VC_Manager *m, const cJSON *def, const char *name);
+
+/* The three rune kinds (SPEC §3.3.1): entity (a thing), act (a change), measure
+ * (a dimension something has an amount of). Default `entity` — every rune that
+ * existed before 0.2.14 is one, and nothing migrates. */
+extern const char *const vc_rune_kinds[3];
+const char *vc_glyph_kind(const cJSON *glyphdef);   /* never NULL */
+cJSON *vc_glyph_field_kind(const cJSON *glyphdef, const char *field);
+/* Shape checks with a sentence for the caller. A quantity annotation is
+ * `{level, unit, min, max}` wherever it appears — on a glyph field (`kinds`) or
+ * on a measure rune (`quantity`). SPEC §3.3.2, okf/concepts/quantity.md. */
+int vc_glyph_validate(const cJSON *def, char *err, size_t errsz);
+int vc_quantity_validate(const cJSON *q, char *err, size_t errsz);
 
 /* ── mantle (model) — SPEC §3.4 ──────────────────────────────────────────── */
 cJSON *vc_mantle_new(const char *name, const char *domain);

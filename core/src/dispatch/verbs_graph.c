@@ -7,19 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Strict numeric parse, matching the coordinate check in `place`: the WHOLE
- * argument must be a number. Returns 1 and (when `out` is given) the value, or
- * 0 if the string is anything else — a flag, a typo, a bare word. Callers must
- * not fall back to atof(), which answers 0.0 for all three. */
-static int vc_parse_number(const char *s, double *out) {
-  if (!s || !*s) return 0;
-  char *end = NULL;
-  double d = strtod(s, &end);
-  if (!end || end == s || *end != 0) return 0;
-  if (out) *out = d;
-  return 1;
-}
-
 cJSON *vc_verbs_graph(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
   cJSON *res = NULL;
   cJSON *err = NULL;
@@ -37,21 +24,42 @@ cJSON *vc_verbs_graph(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       const char *rel = "";
       double weight = 1.0;
       int directed = 1;
-      for (int i = 3; i < a.count; i++) {
+      for (int i = 3; i < a.count && !res; i++) {
         if (!strcmp(a.items[i], "--relation") && i + 1 < a.count) rel = a.items[++i];
-        else if (!strcmp(a.items[i], "--weight") && i + 1 < a.count) weight = atof(a.items[++i]);
+        else if (!strcmp(a.items[i], "--weight") && i + 1 < a.count) {
+          /* Was atof(), which answers 0.0 for a flag, a typo and a bare word
+           * alike — the same silent-zero this file already refused for `relate`
+           * (2026-09-02). It matters more here now that a weight may be an
+           * attribute's VALUE (SPEC §3.7): a mistyped `--weight` used to record
+           * a wrong-but-plausible edge strength, and now records the false claim
+           * that something's speed is zero. */
+          if (!vc_parse_double(a.items[i + 1], &weight))
+            res = res_fail("link: --weight must be a number, got '%s'", a.items[i + 1]);
+          i++;
+        }
         else if (!strcmp(a.items[i], "--undirected")) directed = 0;
       }
-      /* canonicalize to rune names when they exist; otherwise keep the raw ref
-       * (a dangling link to not-yet-created knowledge). */
-      cJSON *rf = vc_mantle_find_rune(mt, a.items[1]);
-      cJSON *rt = vc_mantle_find_rune(mt, a.items[2]);
-      const char *fn = rf ? vc_rune_name(rf) : a.items[1];
-      const char *tn = rt ? vc_rune_name(rt) : a.items[2];
-      vc_mantle_add_edge(mt, fn, tn, rel, weight, directed);
-      res = res_make(1);
-      res_line(res, "link %s -%s-> %s (w=%g%s)", fn, rel, tn, weight,
-               directed ? "" : ", undirected");
+      if (!res) {
+        /* canonicalize to rune names when they exist; otherwise keep the raw ref
+         * (a dangling link to not-yet-created knowledge). */
+        cJSON *rf = vc_mantle_find_rune(mt, a.items[1]);
+        cJSON *rt = vc_mantle_find_rune(mt, a.items[2]);
+        const char *fn = rf ? vc_rune_name(rf) : a.items[1];
+        const char *tn = rt ? vc_rune_name(rt) : a.items[2];
+        vc_mantle_add_edge(mt, fn, tn, rel, weight, directed);
+        res = res_make(1);
+        res_line(res, "link %s -%s-> %s (w=%g%s)", fn, rel, tn, weight,
+                 directed ? "" : ", undirected");
+        /* When the target is a MEASURE rune the edge is an attribute assertion
+         * (SPEC §3.7.1) — say so, with the unit, so the author sees the reading
+         * the graph just acquired rather than discovering it from `values`. */
+        cJSON *gd = rt ? vc_glyph_lookup(m, gstr(rt, "glyph")) : NULL;
+        if (gd && !strcmp(vc_glyph_kind(gd), "measure")) {
+          cJSON *q = cJSON_GetObjectItemCaseSensitive(rt, "quantity");
+          const char *unit = q ? gstr(q, "unit") : "";
+          res_line(res, "  %s's %s is %g%s%s", fn, tn, weight, *unit ? " " : "", unit);
+        }
+      }
     }
 
   } else if (!strcmp(v, "unlink")) {
@@ -100,13 +108,92 @@ cJSON *vc_verbs_graph(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       res_set_data(res, arr);
     }
 
+  } else if (!strcmp(v, "values")) {
+    /* values [<ref>] [--measure <name>] — the ATTRIBUTE ASSERTIONS in this
+     * mantle (SPEC §3.7.1). Read-only.
+     *
+     * An edge whose `to` endpoint is a rune of a MEASURE-kind glyph is not an
+     * arbitrary weighted connection: its weight IS the value of that attribute,
+     * and the measure rune supplies the unit. `player -[5]-> speed` is "the
+     * player's speed is 5 m/s", and it is 5 m/s in the graph rather than in a
+     * field, which is what lets a rule that produces new structure see it.
+     *
+     * The direction is normative and not a guess: `to` names the measure. An
+     * assertion has an owner and a dimension, and those are not interchangeable.
+     *
+     * Core RECOGNIZES this reading; it does not impose it. Fields stay, and an
+     * application whose numbers are read only by renderers — a date, a grid
+     * column — should keep using them. The rule this verb exists to serve: if a
+     * number is read by RULES that produce new structure it belongs on an edge
+     * where the rules can see it; if it is read only by renderers it belongs in
+     * a field (Void Hormiga, 2026-09-03). */
+    cJSON *mt = need_mantle(state, &err);
+    if (!mt) {
+      res = err;
+    } else {
+      const char *of = NULL, *only = NULL;
+      for (int i = 1; i < a.count; i++) {
+        if (!strcmp(a.items[i], "--measure") && i + 1 < a.count) only = a.items[++i];
+        else if (a.items[i][0] != '-' && !of) of = a.items[i];
+      }
+      cJSON *layout = cJSON_GetObjectItemCaseSensitive(mt, "layout");
+      cJSON *edges = layout ? cJSON_GetObjectItemCaseSensitive(layout, "edges") : NULL;
+      res = res_make(1);
+      cJSON *arr = cJSON_CreateArray();
+      cJSON *e = NULL;
+      cJSON_ArrayForEach(e, edges) {
+        const char *f = gstr(e, "from"), *t = gstr(e, "to");
+        cJSON *rt = vc_mantle_find_rune(mt, t);
+        if (!rt) continue; /* a dangling endpoint asserts nothing */
+        cJSON *gd = vc_glyph_lookup(m, gstr(rt, "glyph"));
+        if (!gd || strcmp(vc_glyph_kind(gd), "measure")) continue;
+        if (of && strcmp(f, of)) continue;
+        if (only && strcmp(t, only)) continue;
+        cJSON *wj = cJSON_GetObjectItemCaseSensitive(e, "weight");
+        double wt = cJSON_IsNumber(wj) ? wj->valuedouble : 1.0;
+        cJSON *q = cJSON_GetObjectItemCaseSensitive(rt, "quantity");
+        const char *unit = q ? gstr(q, "unit") : "";
+        const char *level = q ? gstr(q, "level") : "";
+        res_line(res, "%s  %s = %g%s%s", f, t, wt, *unit ? " " : "", unit);
+        cJSON *rec = cJSON_CreateObject();
+        cJSON_AddStringToObject(rec, "of", f);
+        cJSON_AddStringToObject(rec, "measure", t);
+        cJSON_AddNumberToObject(rec, "value", wt);
+        if (*unit) cJSON_AddStringToObject(rec, "unit", unit);
+        else cJSON_AddNullToObject(rec, "unit");
+        if (*level) cJSON_AddStringToObject(rec, "level", level);
+        else cJSON_AddNullToObject(rec, "level");
+        cJSON_AddStringToObject(rec, "relation", gstr(e, "relation"));
+        cJSON_AddItemToArray(arr, rec);
+      }
+      if (cJSON_GetArraySize(arr) == 0) {
+        /* The same signpost discipline `related` got: an empty answer that could
+         * mean "nothing asserted" or "no measure runes exist here" should say
+         * which, because the second is a modelling step the caller has not taken
+         * yet rather than a fact about the data. */
+        int measures = 0;
+        cJSON *r = NULL;
+        cJSON_ArrayForEach(r, vc_mantle_runes(mt)) {
+          cJSON *gd = vc_glyph_lookup(m, gstr(r, "glyph"));
+          if (gd && !strcmp(vc_glyph_kind(gd), "measure")) measures++;
+        }
+        if (measures == 0)
+          res_line(res, "(no attribute assertions; this mantle has no measure runes — "
+                        "a value lives on an edge only when its target's glyph is "
+                        "declared \"kind\":\"measure\")");
+        else
+          res_line(res, "(no attribute assertions)");
+      }
+      res_set_data(res, arr);
+    }
+
   } else if (!strcmp(v, "relate")) {
     cJSON *mt = need_mantle(state, &err);
     if (!mt) {
       res = err;
     } else if (a.count < 3) {
       res = res_fail("usage: relate <tagA> <tagB> [weight]");
-    } else if (a.count >= 4 && !vc_parse_number(a.items[3], NULL)) {
+    } else if (a.count >= 4 && !vc_parse_double(a.items[3], NULL)) {
       /* Void Hormiga, 2026-09-02: `relate a b --relation friend` used to reach
        * atof("--relation") == 0.0 and write the association with weight ZERO —
        * "not near at all" — while reporting ok. The weight is positional here;
@@ -117,7 +204,7 @@ cJSON *vc_verbs_graph(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
                      a.items[3]);
     } else {
       double w = 1.0;
-      if (a.count >= 4) vc_parse_number(a.items[3], &w);
+      if (a.count >= 4) vc_parse_double(a.items[3], &w);
       cJSON *tags = cJSON_GetObjectItemCaseSensitive(mt, "tags");
       set_near(tags, a.items[1], a.items[2], w);
       set_near(tags, a.items[2], a.items[1], w);

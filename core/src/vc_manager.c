@@ -15,6 +15,13 @@ cJSON *vc_state_new(void) {
   cJSON_AddItemToObject(s, "domains", cJSON_CreateObject());
   cJSON_AddItemToObject(s, "mantles", cJSON_CreateArray());
   cJSON_AddItemToObject(s, "scripts", cJSON_CreateObject());
+  /* Declared glyphs (SPEC §2, §3.3.3). A document that carries runes but not
+   * their meaning is data that is present and unreachable: open the bundle on a
+   * machine whose host registered different descriptors and the content
+   * survives verbatim while the projection has no fields. `scripts`, `domains`
+   * and `bindings` were already empty top-level keys, so the document had both
+   * the room and the precedent. (Void Hormiga, 2026-09-03.) */
+  cJSON_AddItemToObject(s, "glyphs", cJSON_CreateObject());
   cJSON_AddItemToObject(s, "config", cJSON_CreateObject());
   cJSON *active = cJSON_CreateObject();
   cJSON_AddItemToObject(active, "mantle", cJSON_CreateNull());
@@ -41,6 +48,7 @@ static void vc_state_hydrate(cJSON *s) {
   hydrate_container(s, "domains", 0);
   hydrate_container(s, "mantles", 1);
   hydrate_container(s, "scripts", 0);
+  hydrate_container(s, "glyphs", 0);
   hydrate_container(s, "config", 0);
   hydrate_container(s, "bindings", 1);
   hydrate_container(s, "_baseline", 1);

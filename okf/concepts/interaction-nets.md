@@ -25,6 +25,27 @@ vicious cycles).
 Not in scope: building an interaction-net *bytecode VM* or compiling anything to nets.
 Void Core is an overlay that *expresses* the model, not a reduction runtime.
 
+# Two things about the Greek letters
+
+**γ, δ and ε are Lafont's, and stay Lafont's.** When the three
+[rune kinds](/concepts/rune.md) were proposed they were proposed as *gamma / delta /
+epsilon* runes, after the interaction combinators. They shipped as
+`entity`/`act`/`measure` instead, and the reason is concrete rather than aesthetic:
+Void Maiz already uses those letters in Lafont's original sense **and about glyphs** —
+its reducer contract documents `swap` as "Lafont's γγ" against "δδ's crossing look",
+and maps glyph → aux-port count. Worse, **ε is the eraser**: an arity-*zero* agent
+whose whole job is to terminate a wire, which is close to the opposite of "a concept
+that carries a value" — the one of the three that most needs to be understood. Two
+sibling projects using γ/δ/ε for different things, both about glyphs, in one stack, is
+a confusion that would have been created on purpose. So this page does not have to
+reconcile anything, which was the point.
+
+**An `act` rune is an agent.** The reification that makes *"Superman flies across the
+sky"* expressible — the verb as a node with typed ports for its roles, participants
+wired to those ports — is exactly an interaction-net agent, and exactly what
+`layout.edges` already stores with its `i:j` port pairs. Rune kinds did not add a
+mechanism here; they named the one that was already underneath.
+
 # Status
 
 `current` — the **formalism is decided** (the chosen foundation) and its **executor is**

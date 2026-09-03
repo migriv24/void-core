@@ -92,7 +92,10 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
           }
         }
         const char *g = gstr(r, "glyph");
-        if (!vc_glyph_find(m->glyphs, g)) {
+        /* Either registry answers (SPEC §3.3.3) — a DECLARED glyph in the
+         * document is exactly as real as a host-registered one, and is the half
+         * that survived travelling here. */
+        if (!vc_glyph_lookup(m, g)) {
           snprintf(b, sizeof b, "unregistered glyph '%s' on %s", g, nm);
           cJSON_AddItemToArray(problems, cJSON_CreateString(b));
         }

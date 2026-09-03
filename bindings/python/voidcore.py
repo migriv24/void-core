@@ -439,9 +439,33 @@ class VoidCore:
         return json.loads(self._take(ptr))
 
     def register_glyph(self, glyph: dict) -> bool:
-        """Declare a rune type (host app config; not part of exported state)."""
+        """Register a rune type as HOST CONFIG — not part of the exported state.
+
+        This is the registry that does **not** travel: export the document, open
+        it somewhere else, and a rune of this glyph has content nobody can read.
+        Use :meth:`declare_glyph` for a type that must survive being handed to
+        another host (SPEC §3.3.3).
+
+        Returns False on a malformed descriptor; `glyph declare` says *why*.
+        """
         ok = self._lib.vc_register_glyph(self._m, json.dumps(glyph).encode("utf-8"))
         return bool(ok)
+
+    def declare_glyph(self, glyph: dict) -> dict[str, Any]:
+        """Declare a rune type INTO THE STATE DOCUMENT (SPEC §2, §3.3.3).
+
+        The half that travels: a bundle then carries its runes *and* their
+        meaning, and declaring a type is an ordinary logged, journaled, undoable,
+        mergeable command. A declaration shadows a registration of the same name.
+
+        Goes through the dispatcher rather than a second entry point, so the
+        change is recorded like every other; the descriptor is quoted with the
+        §6.1 encoder, which is the step a host writing this command by hand gets
+        wrong. Returns the usual `{ok, lines, data}` — `data` is the resolved
+        descriptor, and `lines[0]` says why on a refusal.
+        """
+        payload = json.dumps(glyph, separators=(",", ":"))
+        return self.dispatch("glyph declare " + quote_arg(payload))
 
     def set_effect_handler(self, fn) -> None:
         """Register the host effect handler — the holiday boundary where real I/O lives.

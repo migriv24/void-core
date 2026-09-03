@@ -3,7 +3,7 @@
   "name": "voidcore",
   "display_name": "Void Core",
   "kind": "runtime",
-  "version": "0.2.12",
+  "version": "0.2.14",
   "license": "MIT",
   "repository": "https://github.com/migriv24/void-core",
   "description": "A host-agnostic engine other applications build on: the rune/mantle/domain model, one command dispatcher, an axis-typed tag system, Voidscript, and the Reduce/Temper/Scry transformation layers, behind a plain C ABI.",

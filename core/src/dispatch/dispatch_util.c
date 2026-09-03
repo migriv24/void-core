@@ -22,6 +22,21 @@ cJSON *vc_state_find_mantle(cJSON *state, const char *name) {
   return NULL;
 }
 
+/* Strict numeric parse: the WHOLE argument must be a number. Returns 1 and (when
+ * `out` is given) the value, or 0 if the string is anything else — a flag, a
+ * typo, a bare word. Callers MUST NOT fall back to atof(), which answers 0.0 for
+ * all three; that is exactly how `relate a b --relation friend` recorded "not
+ * near at all" while reporting ok (Void Hormiga, 2026-09-02). One parser, so the
+ * next verb that takes a number inherits the refusal instead of the bug. */
+int vc_parse_double(const char *s, double *out) {
+  if (!s || !*s) return 0;
+  char *end = NULL;
+  double d = strtod(s, &end);
+  if (!end || end == s || *end != 0) return 0;
+  if (out) *out = d;
+  return 1;
+}
+
 /* ── result builders ─────────────────────────────────────────────────────── */
 cJSON *res_make(int ok) {
   cJSON *r = cJSON_CreateObject();

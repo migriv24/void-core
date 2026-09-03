@@ -17,6 +17,7 @@ cJSON *need_mantle(cJSON *state, cJSON **err);
 cJSON *vc_state_find_mantle(cJSON *state, const char *name);
 int    collect_targets(cJSON *mt, const char *ref, cJSON ***out);
 int    ci_contains(const char *hay, const char *needle);
+int    vc_parse_double(const char *s, double *out); /* whole-string numeric parse */
 void   set_near(cJSON *tags, const char *a, const char *b, double w);
 void   del_near(cJSON *tags, const char *a, const char *b);
 

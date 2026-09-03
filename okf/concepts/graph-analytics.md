@@ -19,6 +19,17 @@ joined by [links](/concepts/links.md) (and a consumed
 - **Community detection** — clusters of tightly-linked concepts.
 - **Paths & reach** — shortest path, neighborhood, orphans/dangling targets.
 
+# Weights are not necessarily commensurable
+
+Since 0.2.14 a [link](/concepts/links.md) weight may be an association *strength* or
+an attribute's *value* ([quantity](/concepts/quantity.md)). A mantle can hold both, so
+a weighted degree summing "supports, 0.8" with "speed, 900" is arithmetic on a number
+that means two things. Anything reading weights numerically across a whole mantle —
+weighted centrality, weighted clustering — should either restrict to edges whose
+target is **not** a measure rune (`values` reports exactly the ones that are), or
+treat the graph as unweighted. Unweighted degree, betweenness and components are
+unaffected.
+
 # Why it matters for agents
 
 These turn blind traversal into guided maintenance: an agent updating an OKF can ask

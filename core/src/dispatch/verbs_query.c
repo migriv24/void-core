@@ -26,10 +26,10 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
      * against every verb the families actually answer to, so the next omission
      * fails a test instead of costing an agent an hour. Keep them in sync. */
     const char *verbs =
-        "version help glyphs mantles mantle use where rune ls find describe get "
-        "set setjson tag facet place axes cat tree validate export undo redo history "
+        "version help glyphs glyph mantles mantle use where rune ls find describe get "
+        "set setjson tag facet place measure axes cat tree validate export undo redo history "
         "journal status diff revert save build deploy preview effect log config "
-        "bind bindings unbind batch link unlink links relate unrelate related rule script";
+        "bind bindings unbind batch link unlink links values relate unrelate related rule script";
     res = res_make(1);
     res_line(res, "verbs: %s", verbs);
     res_line(res, "posix aliases: cd pwd rm mv cp mkdir rmdir grep man ? quit dump");
@@ -63,15 +63,56 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
     res_set_data(res, d);
 
   } else if (!strcmp(v, "glyphs")) {
-    res = res_make(1);
-    cJSON *arr = cJSON_CreateArray();
-    cJSON *gd = NULL;
-    cJSON_ArrayForEach(gd, m->glyphs) {
-      const char *nm = gd->string ? gd->string : gstr(gd, "glyph");
-      res_line(res, "%-12s %s", nm, gstr(gd, "label"));
-      cJSON_AddItemToArray(arr, cJSON_Duplicate(gd, 1));
+    /* glyphs [<name>] [--kind entity|act|measure] — SPEC §3.3.3.
+     *
+     * THE DESCRIPTOR IS A HOST CONTRACT. What `data` carries here is the object
+     * a host may read `fields`, `kind`, `kinds` and `presentations` from — with
+     * the defaults resolved, so one shape answers whatever the author wrote —
+     * and it is the reason no host should keep a second, hand-maintained copy of
+     * its own schema. (Void Hormiga kept one, `glyph_fields()`, whose comment
+     * read "the one place the schema is written twice, until a core verb exposes
+     * glyph descriptors to hosts." This is that verb, said out loud.)
+     *
+     * Two registries answer: DECLARED descriptors in `state.glyphs` (they
+     * travel with the document) shadow REGISTERED ones on the manager (host
+     * config). `source` on each descriptor says which, so the shadowing is never
+     * silent. */
+    const char *want = NULL, *kind_filter = NULL;
+    for (int i = 1; i < a.count; i++) {
+      if (!strcmp(a.items[i], "--kind") && i + 1 < a.count) kind_filter = a.items[++i];
+      else if (a.items[i][0] != '-' && !want) want = a.items[i];
     }
-    res_set_data(res, arr);
+    cJSON *declared = cJSON_GetObjectItemCaseSensitive(state, "glyphs");
+    if (want) {
+      cJSON *gd = vc_glyph_lookup(m, want);
+      if (!gd) {
+        res = res_fail("unknown glyph: %s (try 'glyphs')", want);
+      } else {
+        cJSON *full = vc_glyph_resolved(m, gd, want);
+        res = res_make(1);
+        char *s = cJSON_Print(full);
+        res_line(res, "%s", s ? s : "{}");
+        free(s);
+        res_set_data(res, full);
+      }
+    } else {
+      res = res_make(1);
+      cJSON *arr = cJSON_CreateArray();
+      for (int pass = 0; pass < 2; pass++) {
+        cJSON *src = pass == 0 ? declared : m->glyphs;
+        cJSON *gd = NULL;
+        cJSON_ArrayForEach(gd, src) {
+          const char *nm = gd->string ? gd->string : gstr(gd, "glyph");
+          if (pass == 1 && vc_glyph_find(declared, nm)) continue; /* shadowed */
+          if (kind_filter && strcmp(vc_glyph_kind(gd), kind_filter)) continue;
+          res_line(res, "%-12s %-7s %-8s %s", nm, vc_glyph_kind(gd),
+                   pass == 0 ? "document" : "host", gstr(gd, "label"));
+          cJSON_AddItemToArray(arr, vc_glyph_resolved(m, gd, nm));
+        }
+      }
+      if (cJSON_GetArraySize(arr) == 0) res_line(res, "(no matching glyphs)");
+      res_set_data(res, arr);
+    }
 
   } else if (!strcmp(v, "ls")) {
     cJSON *mt = vc_active_mantle(state);
@@ -97,15 +138,28 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       char expr[1024];
       expr[0] = 0;
       int have_expr = 0;
+      /* `--kind entity|act|measure` (SPEC §3.3.1) filters by the rune's KIND,
+       * which lives on its glyph rather than in its tags — so it is a separate
+       * flag rather than a reserved `kind:` tag. `kind:` is already an ordinary
+       * app namespace on the `what` axis (§5), and reserving it would silently
+       * change what every existing `kind:vegetable` tag matches. */
+      const char *kind_filter = NULL;
       for (int i = 1; i < a.count; i++) {
-        if (!strcmp(a.items[i], "--tag")) {
+        if (!strcmp(a.items[i], "--kind") && i + 1 < a.count) {
+          kind_filter = a.items[++i];
+        } else if (!strcmp(a.items[i], "--tag")) {
           have_expr = 1;
-          for (int j = i + 1; j < a.count; j++) {
+          int j = i + 1;
+          for (; j < a.count; j++) {
             if (!strncmp(a.items[j], "--", 2)) break;
             if (j > i + 1) strncat(expr, " ", sizeof expr - strlen(expr) - 1);
             strncat(expr, a.items[j], sizeof expr - strlen(expr) - 1);
           }
-          break;
+          /* Resume at the flag that ENDED the expression rather than stopping —
+           * `ls --tag june --kind measure` must see both. The expression itself
+           * still runs only to the next `--flag` (the 2026-07-03 capture-flag
+           * fix, conformance case 08). */
+          i = j - 1;
         }
       }
       res = res_make(1);
@@ -113,12 +167,16 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       cJSON *r = NULL;
       cJSON_ArrayForEach(r, vc_mantle_runes(mt)) {
         if (have_expr && !vc_filter_eval(r, expr)) continue;
+        if (kind_filter) {
+          cJSON *gd = vc_glyph_lookup(m, gstr(r, "glyph"));
+          if (!gd || strcmp(vc_glyph_kind(gd), kind_filter)) continue;
+        }
         const char *nm = vc_rune_name(r);
         res_line(res, "%s", nm);
         cJSON_AddItemToArray(arr, cJSON_CreateString(nm));
       }
       if (cJSON_GetArraySize(arr) == 0)
-        res_line(res, have_expr ? "(no matches)" : "(empty)");
+        res_line(res, (have_expr || kind_filter) ? "(no matches)" : "(empty)");
       res_set_data(res, arr);
     }
 
@@ -136,8 +194,15 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
         res = res_fail("no such rune: %s", a.items[1]);
       } else {
         res = res_make(1);
-        res_line(res, "%s  [glyph %s]  id=%s", vc_rune_name(r), gstr(r, "glyph"),
-                 vc_rune_id(r));
+        cJSON *gd = vc_glyph_lookup(m, gstr(r, "glyph"));
+        res_line(res, "%s  [glyph %s / %s]  id=%s", vc_rune_name(r), gstr(r, "glyph"),
+                 gd ? vc_glyph_kind(gd) : "unregistered", vc_rune_id(r));
+        cJSON *q = cJSON_GetObjectItemCaseSensitive(r, "quantity");
+        if (cJSON_IsObject(q)) {
+          const char *unit = gstr(q, "unit"), *level = gstr(q, "level");
+          res_line(res, "  measures %s%s%s", *unit ? unit : "(no unit)",
+                   *level ? ", level " : "", *level ? level : "");
+        }
         cJSON *f = cJSON_GetObjectItemCaseSensitive(r, "facets");
         for (int i = 0; i < 6; i++) {
           const char *fv = gstr(f, vc_facet_keys[i]);
@@ -171,7 +236,11 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       } else {
         cJSON *content = cJSON_GetObjectItemCaseSensitive(r, "content");
         cJSON *target = content;
-        if (a.count >= 3) {
+        /* A trailing `--flag` is not a field name. `$(get <ref> --json)` — the
+         * natural way to capture a rune's whole content — used to look up a
+         * content field literally called "--json" and fail; the same shape as
+         * the 2026-07-03 capture-flag bug in `ls --tag` (conformance case 08). */
+        if (a.count >= 3 && strncmp(a.items[2], "--", 2)) {
           target = cJSON_GetObjectItemCaseSensitive(content, a.items[2]);
           if (!target) {
             res = res_fail("no content field: %s", a.items[2]);

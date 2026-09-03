@@ -1,9 +1,9 @@
 /* undo.c — undo/redo via state snapshots (SPEC §6 mutation invariants).
  *
- * v0 is memento-based: each mutating command snapshots the undoable slice
- * (mantles + active) before it runs; on success the snapshot is committed to the
- * undo stack and the redo stack is cleared. This is the simplest *correct*
- * implementation and matches the SPEC's "snapshot of mantles+active" wording.
+ * v0 is memento-based: each mutating command snapshots the undoable slice —
+ * `mantles` + `active` + `glyphs` (SPEC §2, §6) — before it runs; on success the
+ * snapshot is committed to the undo stack and the redo stack is cleared. This is
+ * the simplest *correct* implementation of the SPEC's snapshot wording.
  *
  * The user wants to explore a richer "commander-based architecture" (reified
  * command objects with explicit inverses) inside the core — see
@@ -37,6 +37,12 @@ vc_undo_frame vc_undo_capture(VC_Manager *m, const char *command) {
   f.who = who ? vc_strdup(who) : NULL;
   f.mantles = dup_field(m->state, "mantles");
   f.active = dup_field(m->state, "active");
+  /* Declared glyphs joined the slice in 0.2.14 (SPEC §2, §6). A schema is
+   * authored content, not a session knob: `glyph declare` has to take back like
+   * `rune new`, and a rune must never survive an undo that removed the
+   * declaration explaining it. Bounded by the app's type vocabulary, so this
+   * costs a world-sized `mantles` nothing it was not already paying. */
+  f.glyphs = dup_field(m->state, "glyphs");
   return f;
 }
 
@@ -46,10 +52,12 @@ void vc_undo_frame_free(vc_undo_frame *f) {
   free(f->who);
   if (f->mantles) cJSON_Delete(f->mantles);
   if (f->active) cJSON_Delete(f->active);
+  if (f->glyphs) cJSON_Delete(f->glyphs);
   f->label = NULL;
   f->who = NULL;
   f->mantles = NULL;
   f->active = NULL;
+  f->glyphs = NULL;
 }
 
 static void stack_push(vc_undo_frame **arr, int *count, int *cap, vc_undo_frame f) {
@@ -126,8 +134,11 @@ static void apply_frame(VC_Manager *m, vc_undo_frame *f, vc_undo_frame **other,
                     cJSON_GetObjectItemCaseSensitive(m->state, "mantles"));
   cJSON_ReplaceItemInObjectCaseSensitive(m->state, "mantles", f->mantles);
   cJSON_ReplaceItemInObjectCaseSensitive(m->state, "active", f->active);
+  if (f->glyphs)
+    cJSON_ReplaceItemInObjectCaseSensitive(m->state, "glyphs", f->glyphs);
   f->mantles = NULL; /* ownership moved into state */
   f->active = NULL;
+  f->glyphs = NULL;
   free(f->label);
   f->label = NULL;
   free(f->who);

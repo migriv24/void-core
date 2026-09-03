@@ -61,6 +61,7 @@ All persistent working state is one serializable document:
   "domains": { "<name>": <Domain> },   // §3.5, keyed by domain name
   "mantles": [ <Mantle>, ... ],        // §3.4
   "bindings": [ <Binding>, ... ],      // §3.6 (host-level, cross-mantle)
+  "glyphs":  { "<name>": <Glyph> },    // §3.3, DECLARED types — travel with the doc
   "scripts": { "<name>": "<voidscript source>" },
   "config":  { "<key>": <scalar> },
   "active":  { "mantle": "<name|null>", "domain": "<name|null>" },
@@ -73,6 +74,17 @@ All persistent working state is one serializable document:
   for `revert`. It is replaced on every `save`/`deploy`.
 - The state document is the *abstract* working state. Writing edits into a real
   backend is the adapter's job (§9), not the store's.
+- **`glyphs` is what makes the document self-describing** (added 0.2.14). A
+  descriptor may be *registered* on a manager by the host at boot (§3.3, host
+  config, never exported) or *declared* here. Only the declared half travels: a
+  bundle whose types are merely registered carries its runes but not their
+  meaning, so opening it on a machine whose host registered different descriptors
+  leaves the content present in the document and unreachable through the
+  projection. An implementation MUST export declarations and MUST accept a
+  document without the key (it hydrates to `{}`, which is exactly today's
+  behavior). Declared descriptors are written by the `glyph` verb (§7.2) and are
+  part of the **undoable slice** (§6) — a schema is authored content, not a
+  session knob. (Void Hormiga, 2026-09-03.)
 
 ---
 
@@ -105,6 +117,7 @@ All persistent working state is one serializable document:
   "tags":    ["science", "outcome:concepts"],
   "content": { /* glyph-specific; core does NOT interpret it */ },
   "placement": null,                   // optional explicit position — the VIEW SLICE (§6)
+  "quantity": null,                    // optional; MEASURE runes only (§3.3.2)
   "relations": []                      // optional; reserved
 }
 ```
@@ -117,29 +130,157 @@ All persistent working state is one serializable document:
   undoable** state — see §6. Apps MUST use `placement`/`place` for positions
   rather than smuggling them into `content`, so that undo never pops a *move*
   when the user expects it to pop an *edit*.
+- `quantity` is present only on a rune whose glyph is `kind: "measure"` (§3.3.1),
+  and holds `{level, unit, min, max}` — the annotation defined in §3.3.2. It sits
+  beside `content` rather than inside it for the same reason `placement` does: the
+  core must be able to read it. An edge weight that is an attribute's value (§3.7.1)
+  is a bare number until something supplies the unit, and a unit the core cannot
+  see hands the host back the dimensional analysis the graph was supposed to give
+  it. Written by the `measure` verb (§7.2); absent, not `null`, when never set.
+  Apps MUST NOT smuggle units into `content` for the same reason they must not
+  smuggle positions there.
 - Hydrating a partial/legacy rune MUST fill missing fields with the defaults above
-  and MUST reject a rune with no `spirit`.
+  and MUST reject a rune with no `spirit`. `quantity` is optional: its absence is
+  the default, not a field to fill in.
 
-### 3.3 Glyph — the editability registry  **[impl]**
-A glyph binds a rune type to how it is edited and how it is described.
+### 3.3 Glyph — a rune's declared type  **[impl]**
+A glyph declares what a rune **is**: which content fields it has, what kind of
+thing it is, and — separately — how it may be presented.
 ```jsonc
 {
   "glyph":   "text",
   "label":   "Text block",
   "editor":  "text",                   // which GUI editor / CLI prompt
   "fields":  ["value"],                // content field names
+  "kind":    "entity",                 // entity | act | measure (§3.3.1); default entity
+  "kinds":   { "value": <Quantity> },  // per-field quantity annotations (§3.3.2)
+  "presentations": { "canvas": {...} },// per-modality presentation (below); optional
   "schema":  null,                     // optional
   "describe":   "(rune) -> short textual summary of content",   // function
   "newContent": "() -> default content payload for a fresh rune" // function
 }
 ```
 - Built-in glyphs an implementation MUST provide: `text`, `richtext`, `image`,
-  `imageList`, `color`, `link`, `group`.
-- Applications register additional glyphs (Biology: `bubble`, `dialogueLine`,
-  `characterConfig`; Hormiga: newsletter block types).
+  `imageList`, `color`, `link`, `group`. All are `kind: "entity"`.
+- Applications add their own, either **registered** (host config) or **declared**
+  (in the document) — see §3.3.3.
+- A descriptor MUST be **refused, not half-stored**, when its shape is wrong: an
+  unknown `kind`, an unknown measurement `level`, a `kinds` key naming a field the
+  glyph does not declare, a non-object `presentations`. A descriptor outlives the
+  session that wrote it and travels to hosts that never saw the code, so a typo in
+  one is a fact about a type that nobody downstream can question.
 - **[ext]** A glyph MAY also define `render(rune, ctx) -> string` for applications
   whose runes produce an output artifact (e.g. a newsletter block → HTML) rather
   than writing back into source files.
+
+**Schema and presentation are two different objects.** `fields`, `kind` and
+`kinds` answer *"what is this rune?"* — true in every mantle, for every output,
+forever. `presentations` answers *"how does this rune appear?"*, and there is one
+answer **per modality**: a sprite, a sound, a card, a table row, a paragraph in an
+email. The two are in bijection only while a rune has exactly one representation,
+which is why one object carried both until now; the moment it has several, the
+presentation stops being a property of the rune and becomes a *function from the
+rune to a modality* — and a function can be derived rather than authored, which is
+the direction this architecture is going.
+
+`presentations` is an object keyed by modality name (`canvas`, `audio`, `email`,
+…) whose values are objects the core stores and **never interprets**. It is
+additive: `editor`, `label` and whatever `hints` a host already puts on a
+descriptor keep working unchanged, and `canvas` is the conventional home for what
+a host calls `hints` today. The naming is deliberately **not** resolved here —
+under the original intent the *rendering* is what should be called the glyph, and
+renaming across the ABI would break every host at once. Split now under a new
+name, decide the naming later. (Void Hormiga, 2026-09-03.)
+
+#### 3.3.1 Rune kinds — entity / act / measure  **[impl]**
+Not every rune is the same *kind* of thing, and the difference is structural
+rather than domain-specific:
+
+| kind | is | examples |
+|---|---|---|
+| `entity` | an explicit thing, which has representations | a contact, an event, a player, an enemy |
+| `act` | a change; it modifies how entities are represented, or relates them | `flying`, `across`, `attacks` |
+| `measure` | a dimension something has an amount of | `x`, `health`, `speed` |
+
+**Default `entity`.** Every rune that existed before this section is one, and
+nothing migrates. A descriptor that omits `kind` reads identically to one written
+before kinds existed.
+
+Why the core cares, in one argument: **an edge label can only ever express a
+binary relation.** *"Superman flies across the sky"* is at least ternary — an
+agent, an act, and a path — and there is no way to write it as one labelled edge
+without losing a participant. The standard move is to **reify** the relation: make
+the verb a node with typed ports for its roles and connect the participants to
+those ports. That is RDF reification, and neo-Davidsonian event semantics, and —
+precisely — an **interaction-net agent** (§4 port signatures; `layout.edges`
+already carries `i:j` port pairs). So an act rune is not a new mechanism; it is the
+mechanism this stack already has, applied to verbs instead of only to nouns. The
+triad is also the entity/relationship/attribute one that data modelling settled on
+about fifty years ago, and a `measure` rune is what physics calls an *observable* —
+an independent derivation landing on a known triad is a good sign rather than a
+coincidence.
+
+**The kinds are named `entity`/`act`/`measure`, deliberately not γ/δ/ε.** The
+original proposal was Greek, after the interaction combinators. Void Maiz already
+uses those letters in Lafont's own sense and *about glyphs*: its reducer contract
+documents `swap` as "Lafont's γγ" against "δδ's crossing look", and **ε is the
+eraser** — an arity-zero agent whose whole job is to terminate a wire, which is
+close to the opposite of "a concept that carries a value". Two sibling projects
+using γ/δ/ε for different things, both about glyphs, in one stack, is a confusion
+that would have been created on purpose. "Verb" was unavailable for the same class
+of reason: the dispatcher's verbs are commands (§7), and a domain action is not
+one of those.
+
+Kinds are **not** exposed as a reserved `kind:<k>` tag. `kind:` is already an
+ordinary application namespace on the `what` axis (§5), and reserving it would
+silently change what every existing `kind:vegetable` tag matches. They are queried
+with `ls --kind <k>` and `glyphs --kind <k>` (§7.2).
+
+#### 3.3.2 Quantity annotations — what a number IS  **[impl]**
+```jsonc
+{ "level": "ratio", "unit": "grid-columns", "min": 1, "max": 12 }
+```
+The same object appears in two places on purpose: on a glyph **field**
+(`kinds: {"<field>": <Quantity>}`) and on a **measure rune** (`quantity`, §3.2).
+An application that puts a value in a field and one that puts it on an edge are
+describing the same quantity, and must not have to say it two ways.
+
+`level` is the **measurement level**, and it answers *which operations are legal*:
+
+| level | legal | example |
+|---|---|---|
+| `nominal` | `=` | a tag |
+| `ordinal` | `<` | `compact` < `title` < `full` |
+| `interval` | differences; no true zero | a date, a time |
+| `ratio` | ratios; true zero | a weight, a count, a speed |
+
+Every field is optional, and every one is **declarative: the core stores them and
+does not enforce them.** It rejects a `level` outside the four and a non-numeric
+`min`/`max` — a typo in a declaration is not a local mistake — but it never
+coerces, clamps or converts a value. See `okf/concepts/quantity.md` for the
+points-versus-vectors reasoning, which is what decides §3.7.1.
+
+#### 3.3.3 Registered vs declared — the two registries  **[impl]**
+A descriptor reaches a manager two ways, and the difference is which one travels:
+
+| | where it lives | exported? | written by |
+|---|---|---|---|
+| **registered** | on the manager | no — host config | `vc_register_glyph` at boot |
+| **declared** | `state.glyphs` (§2) | **yes** | `glyph declare` (§7.2) |
+
+- A **declaration shadows a registration** of the same name. The declaration is
+  the one that traveled with the data, so it is the one that describes it.
+- Every reader of a rune's type — `rune new`, `validate`, `describe`, `ls --kind`,
+  `values` — MUST consult both, declared first.
+- **The descriptor is a host contract.** `glyphs` returns it as `data`, with
+  `fields`, `kind` and a `source` of `"document"` or `"host"` resolved, so one
+  shape answers whatever the author wrote. A host MAY read `fields`, `kind`,
+  `kinds` and `presentations` from it, and SHOULD NOT keep a second,
+  hand-maintained copy of its own schema.
+- `glyph undeclare <name>` MUST refuse while any rune still carries the glyph:
+  removing a declaration out from under its runes recreates precisely the failure
+  declarations exist to prevent. Undeclaring makes a shadowed host registration
+  visible again rather than deleting it.
 
 ### 3.4 Mantle — runes over a domain + their rules  **[impl]**
 ```jsonc
@@ -250,6 +391,58 @@ mantle's `layout.edges`. `relation` is a free label (may be `""`), `weight` a nu
   naming mantle B is the first edge whose meaning depends on another mantle, so
   `mantle rm B` and its `undo` need an answer that question has to give first.
 
+#### 3.7.1 An edge weight MAY be an attribute's value  **[impl]**
+When an edge's `to` endpoint resolves to a rune whose glyph is `kind: "measure"`
+(§3.3.1), the edge is an **attribute assertion**: its `weight` *is* the value of
+that attribute, and the measure rune supplies the unit (§3.3.2).
+
+```
+player --[weight 5.0]--> speed          "the player's speed is 5 m/s"
+```
+
+- **The direction is normative.** `to` names the measure. An assertion has an
+  owner and a dimension and they are not interchangeable.
+- **This is recognition, not coercion.** Nothing is forbidden and nothing changes
+  shape: `weight` was already a number defaulting to `1.0`, and an edge to a
+  non-measure rune stays exactly what it was. Fields are not deprecated by this
+  and never will be.
+- **What it buys.** The unit comes from the graph rather than from host code, so
+  dimensional analysis falls out of the structure; cross-entity questions
+  (*"everything with a speed"*, *"the fastest thing here"*) become structural
+  rather than a field scan; and the value sits where a rule that produces new
+  structure can see it, which is what lets behavior emerge from the graph instead
+  of from code that reads fields.
+- **Which numbers belong here.** The criterion is how much the number interacts
+  with the mantle: *if a number is read by **rules that produce new structure**,
+  it belongs on an edge where the rules can see it; if it is read only by
+  **renderers**, it belongs in a field.* Health and speed in a game are the
+  mechanics. A date, a grid column and a coordinate in a records app are read by
+  renderers and by nothing else, and turning one into an edge makes the commonest
+  operation in that app worse for no gain.
+- **A weight is a magnitude, so a *point* is not one.** Dates and coordinates live
+  in an affine space: you may subtract two points to get a vector and add a vector
+  to a point, but you may not add or scale two points. *"Half of September 3rd"* is
+  meaningless; *"a quarter past twelve"* is fine. So values-on-edges is right for
+  ratio-scale vector quantities and wrong for points — see
+  `okf/concepts/quantity.md`.
+- **`weight` stays one scalar, and is not becoming an array.** A quantity with
+  several components that transform as a unit — a position, a velocity — is not
+  three weights, and §3.7's standing rule already answers it: an edge carries
+  `relation`, `direction` and `weight`, and *anything else must be reified as a
+  rune*. A position in particular was never a weight anyway, being a point, and
+  already has its own slice (`placement`, §3.2).
+- **Two weighted graphs now mean different things.** An edge weight may be a
+  strength or a value; `relate` writes `mantle.tags[<tag>].near`, which is also
+  weighted and always means **similarity** (§5). They are different graphs over
+  different vertices — runes versus tags — and nothing joins them. Anything
+  reading weights numerically across a mantle (centrality, clustering) MUST NOT
+  assume weights are commensurable: a graph holding both "supports, 0.8" and
+  "speed, 900" has no meaningful weighted degree.
+- Read with `values [<ref>] [--measure <name>]` (§7.2), which reports
+  `{of, measure, value, unit, level, relation}` per assertion.
+
+(Void Hormiga, 2026-09-03, relaying the author's design intent.)
+
 ---
 
 ## 4. Identity & reference rules (normative)
@@ -299,6 +492,12 @@ mantle's `layout.edges`. `relation` is a free label (may be `""`), `weight` a nu
   operators **at a token boundary only** — mid-word they are ordinary tag
   characters (`a&b` is one TAG atom, not `a AND b`), so a stray `&`/`|` is a
   never-matching tag, never an error or a crash.
+- **The weighted tag graph means SIMILARITY.** `relate`/`related`/`unrelate` write
+  and read `mantle.tags[<tag>].near`, a weighted graph over **tags**. Since 0.2.14
+  a *link* weight may also be a value (§3.7.1), so the state document holds two
+  weighted graphs that mean different things over different vertices. Neither
+  reads the other, `related` answers only about tags, and no operation joins them.
+  A weight here is an association strength and always has been.
 - **One evaluator, exposed over the FFI.** The C core exports the grammar as
   `vc_tag_match(expr, tags_json) -> 1|0|-1` (`tags_json` = a JSON array of tag
   strings; include the entity's name for name-as-tag matching; stateless,
@@ -433,8 +632,17 @@ A **JSON** value is passed with `setjson <ref> <field> '<json>'` — single quot
 with `\'` for any apostrophe inside the JSON.
 
 **Mutation invariants:** every mutating verb pushes an undo frame (snapshot of
-mantles+active) *before* mutating; the redo stack is cleared on new mutation;
-the undo stack is bounded (reference impl: 200 by default).
+the **undoable slice** — `mantles` + `active` + `glyphs`) *before* mutating; the
+redo stack is cleared on new mutation; the undo stack is bounded (reference impl:
+200 by default).
+
+`glyphs` joined the slice in 0.2.14, with the declarations of §2. A schema is
+authored content — it travels with the document and is what makes the runes
+readable — so `glyph declare` takes back like `rune new` rather than sitting
+outside history like `config`, and a rune can never survive an undo that removed
+the declaration explaining it. The added cost is O(the app's type vocabulary),
+which is bounded by how many kinds of thing the app has rather than by how much
+data it holds.
 
 **Undo is host-controlled** (`vc_set_undo`, `vc_set_undo_depth`; **[impl]** 0.2.9).
 On by default. A host MAY turn it off, in which case no frame is taken and
@@ -547,7 +755,7 @@ Each entry:
   PRNG (§3.1), so replaying the *string* produces different state; replaying the
   *entry* does not. For an `undo`/`redo` entry these ids are **restored** rather
   than freshly minted — the `verb` says which.
-- **`slice`** names where the change landed: `undo` (mantles/active), `view`
+- **`slice`** names where the change landed: `undo` (mantles/active/glyphs), `view`
   (`placement`, §3.2), or `host` (nothing in the state document — it went out
   through the holiday boundary).
 
@@ -627,16 +835,18 @@ expects.)
 | verb | meaning |
 |---|---|
 | `describe [<ref>]` | whole-mantle summary, or one rune's glyph summary + 6 facets + its bindings |
-| `ls [--tag <expr>]` | list runes (optionally tag-filtered); `data` = array of names. No active mantle → root-`ls` (§7.1): lists mantles instead. The `--tag` expression ends at the next `--flag` token, so a trailing flag (e.g. `--json` appended by a `$(…)` capture) never joins into the expression |
+| `ls [--tag <expr>] [--kind <k>]` | list runes (optionally tag-filtered, and/or filtered to one rune kind — §3.3.1); `data` = array of names. No active mantle → root-`ls` (§7.1): lists mantles instead. The `--tag` expression ends at the next `--flag` token, so a trailing flag (e.g. `--json` appended by a `$(…)` capture) never joins into the expression — and a flag *after* a `--tag` expression is still read |
 | `tree` | mantle → runes → layout edges, indented |
-| `get <ref> [<field>]` | a content field value, or all content |
+| `get <ref> [<field>]` | a content field value, or all content. A trailing `--flag` is not a field name, so `$(get <ref> --json)` captures the whole content |
 | `find <query>` | substring search over name/content/facets/tags |
 | `cat <ref>` | raw rune JSON |
 | `status [--dirty]` | change set vs `_baseline`; `--dirty` → `ok` reflects dirtiness (for scripts) |
 | `diff [<ref>]` | saved-vs-working diff |
 | `history [--tail N]` | undo-stack labels |
 | `journal [on\|off\|clear]` | the §6.2 command record; bare = read it (`data` = the entries), `on`/`off` toggle recording, `clear` drops the entries. Neither mutating nor effectful, so reading or toggling the record never appears in it |
-| `glyphs` | registered glyphs |
+| `glyphs [<name>] [--kind <k>]` | the glyph descriptors, declared and registered (§3.3.3). `data` = the resolved descriptors (`fields`, `kind` and `source` always present) — **a host contract**: read your schema from here rather than keeping a second copy. `<name>` returns one; `--kind` filters by rune kind |
+| `measure <ref>` | read a measure rune's `quantity` (§3.2); `data` = the annotation or `null` |
+| `values [<ref>] [--measure <name>]` | the mantle's **attribute assertions** (§3.7.1) — edges whose target is a measure rune. `data` = `{of, measure, value, unit, level, relation}` per assertion; `<ref>` narrows to one owner, `--measure` to one dimension |
 | `axes [all]` | this mantle's tags bucketed by fundamental axis (`all` = list the axes) |
 | `mantles` | all mantles (active marked) |
 | `domain` | the active domain's fields |
@@ -653,8 +863,11 @@ expects.)
 | `tag <ref> +add -remove …` | add/remove tags |
 | `rune new <glyph> <name>` | mint a rune (auto spirit.id, glyph's `newContent()`) |
 | `rune rm\|rename\|dup\|move …` | remove / rename / duplicate / set a link (`move` = `link` alias) |
-| `link <from> <to> [--relation r] [--weight w] [--undirected]` | create/update a link (§3.7); endpoints MAY dangle |
+| `link <from> <to> [--relation r] [--weight w] [--undirected]` | create/update a link (§3.7); endpoints MAY dangle. `--weight` MUST be a number — a non-numeric one is refused rather than silently recorded as `0.0`. When the target is a measure rune the reply also states the assertion the edge just made (§3.7.1) |
 | `unlink <from> <to> [--relation r]` | remove matching link(s) |
+| `glyph declare '<json>'` | declare a glyph **into the state document** (§2, §3.3.3) so it travels with the data; refused with a reason on a malformed descriptor. `data` = the resolved descriptor |
+| `glyph undeclare <name>` | remove a declaration; **refused while any rune carries it**. A shadowed host registration becomes visible again |
+| `measure <ref> [--level L] [--unit U] [--min N] [--max N] [--clear]` | annotate what a **measure** rune measures (§3.2, §3.3.2). Refused on a rune of any other kind — the dimension is what has a unit, not the thing that has an amount of it |
 | `mantle new <name>` | create a mantle over the active domain (becomes active) |
 | `mantle rm <name>` | remove a mantle and its runes; removing the **active** mantle deactivates (§7.1 cold start) rather than failing, and removing the last mantle is allowed. Rejects an unknown name |
 | `mantle rename <old> <new>` | rename a mantle, keeping its `id` and runes; `active.mantle` follows. Rejects an unknown `<old>` or a taken `<new>` (like `mantle new`) |
@@ -944,13 +1157,17 @@ marked `-text` in `.gitattributes` so no checkout can quietly repair it.
   `undo` should *do* about one — an effectful command is recorded as effectful and
   is still snapshot-undoable on the model side, which takes back the edit and not
   the write. Naming that honestly is the remaining half.
-- **Scope of the undoable slice.** It is `mantles` + `active` today, which leaves
+- **Scope of the undoable slice.** It is `mantles` + `active` + `glyphs` since
+  0.2.14 — declarations joined it because a schema is authored content (§6) — which
+  still leaves
   `bindings` outside it — so `mantle rm`/`rename` (§3.4) cannot repoint or drop
   cross-mantle bindings without creating a mutation `undo` only half-restores.
   Either bindings join the slice (and `bind`/`unbind` become undoable, which they
   are not today), or dangling bindings become a `validate` diagnostic like
   dangling links. Related: whether `config`/`domains`/`scripts` belong in the
-  slice at all.
+  slice at all. The 0.2.14 widening is one data point toward an answer rather than
+  the answer: `glyphs` went in because it is *authored and travels*, and that test
+  puts `scripts` on the same side and `config` firmly on the other.
   **Reframing (Void Palabra, 2026-07-27):** *what a local user can take back* and
   *what may be sent to another machine* are two different questions, and forcing one
   answer on both is probably what makes this hard. Palabra had to answer the second
@@ -995,5 +1212,16 @@ marked `-text` in `.gitattributes` so no checkout can quietly repair it.
   resolving names to `spirit.id` before comparing, and asked for no change. If link
   storage is ever revisited, `spirit.id`-keyed endpoints would remove the ambiguity at
   the cost of a migration.
+- **What a `presentations` entry contains** (§3.3). The core stores modality keys
+  and never interprets their values, which is the right amount of commitment for
+  now and not a final answer: two hosts rendering the same rune to the same
+  modality will invent two shapes for it. The question is whether a modality's
+  contents are ever worth standardizing, or whether the eventual answer is that a
+  presentation is *derived* — the model-backed renderer this is a step toward, and
+  explicitly out of scope today.
+- **The eventual glyph rename** (§3.3). Under the original intent, the *rendering*
+  is what should be called a glyph and the schema should be called something else.
+  The split shipped under new names precisely so the rename is recoverable; doing
+  it means breaking every host at once, so it is not scheduled.
 - Whether the fundamental tag axes are frozen or application-extensible.
 - The exact `render`/`deploy` contract for non-file-backed domains (§3.5, §9).

@@ -13,6 +13,16 @@ static int is_mutating(const vc_argv *a) {
   if (!strcmp(v, "set") || !strcmp(v, "setjson") || !strcmp(v, "facet") ||
       !strcmp(v, "tag"))
     return 1;
+  /* `measure <ref>` with no flags is a read; with any it writes the rune's
+   * quantity, which lives in `mantles` like every other rune field (§3.2). */
+  if (!strcmp(v, "measure")) return a->count >= 3;
+  /* A glyph DECLARATION is a schema, and a schema is authored content: it lands
+   * in `state.glyphs`, which joined the undoable slice in 0.2.14 (§2, §6). It is
+   * not `config`, which is a session knob and deliberately outside history. */
+  if (!strcmp(v, "glyph") && a->count >= 2) {
+    const char *s = a->items[1];
+    return !strcmp(s, "declare") || !strcmp(s, "undeclare");
+  }
   if (!strcmp(v, "rune") && a->count >= 2) {
     const char *s = a->items[1];
     return !strcmp(s, "new") || !strcmp(s, "rm") || !strcmp(s, "rename") ||

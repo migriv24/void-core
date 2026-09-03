@@ -198,7 +198,10 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
     if (!mt) {
       res = err;
     } else if (a.count >= 4 && !strcmp(a.items[1], "new")) {
-      cJSON *gd = vc_glyph_find(m->glyphs, a.items[2]);
+      /* Either registry answers (SPEC §3.3.3): a glyph DECLARED in the document
+       * is as real as one the host registered — and is the only one a bundle
+       * opened somewhere else still has. */
+      cJSON *gd = vc_glyph_lookup(m, a.items[2]);
       if (!gd) {
         res = res_fail("unknown glyph: %s (try 'glyphs')", a.items[2]);
       } else {
@@ -324,6 +327,189 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       res = res_fail("usage: rune new <glyph> <name> | rune rm <ref> | "
                      "rune rename <ref> <new> | rune move <ref> <relation> <target> | "
                      "rune dup <ref> [<new>]");
+    }
+
+  } else if (!strcmp(v, "glyph")) {
+    /* glyph declare '<json>' | glyph undeclare <name> — SPEC §3.3.3.
+     *
+     * The DECLARED half of the registry. Until 0.2.14 a descriptor could only be
+     * REGISTERED, on the manager, by the host at boot — so a `.miga` carried its
+     * runes but not their meaning: open the bundle on a machine whose host
+     * registered different descriptors and the content survives verbatim in the
+     * document while the projection has no fields. Data present and unreachable.
+     * A declaration lives in `state.glyphs`, which makes declaring a type an
+     * ordinary logged, journaled, undoable, mergeable command like every other
+     * change — the property that makes the rest of this stack trustworthy.
+     * (Void Hormiga, 2026-09-03: this was the one ask that blocked something.) */
+    cJSON *declared = vc_glyphs_declared(state);
+    if (a.count >= 3 && !strcmp(a.items[1], "declare")) {
+      /* Probe first, only to name the glyph in the reply and to say whether this
+       * replaced an earlier declaration. The register call re-parses and owns
+       * the real one. */
+      char name[128];
+      name[0] = 0;
+      cJSON *probe = cJSON_Parse(a.items[2]);
+      cJSON *pn = probe ? cJSON_GetObjectItemCaseSensitive(probe, "glyph") : NULL;
+      if (cJSON_IsString(pn)) {
+        strncpy(name, pn->valuestring, sizeof name - 1);
+        name[sizeof name - 1] = 0;
+      }
+      if (probe) cJSON_Delete(probe);
+      int existed = *name && cJSON_GetObjectItemCaseSensitive(declared, name) != NULL;
+      char gerr[256];
+      gerr[0] = 0;
+      if (!vc_glyph_register_err(declared, a.items[2], gerr, sizeof gerr)) {
+        res = res_fail("glyph declare: %s", gerr);
+      } else {
+        cJSON *def = vc_glyph_find(declared, name);
+        int nf = cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(def, "fields"));
+        res = res_make(1);
+        res_line(res, "%s glyph '%s' (kind %s, %d field%s) in the state document",
+                 existed ? "redeclared" : "declared", name, vc_glyph_kind(def),
+                 nf, nf == 1 ? "" : "s");
+        if (!existed && vc_glyph_find(m->glyphs, name))
+          res_line(res, "  (shadows the host registration of the same name — "
+                        "the declaration is the one that travels with the data)");
+        res_set_data(res, vc_glyph_resolved(m, def, name));
+      }
+    } else if (a.count >= 3 && !strcmp(a.items[1], "undeclare")) {
+      const char *name = a.items[2];
+      if (!cJSON_GetObjectItemCaseSensitive(declared, name)) {
+        res = res_fail("no declared glyph: %s (host registrations are not "
+                       "undeclarable — they are the host's own config)", name);
+      } else {
+        /* A declaration is what makes its runes readable. Removing one while
+         * runes still carry it would leave exactly the failure this feature
+         * exists to prevent — content present, meaning gone — so the refusal
+         * names the rune that is holding it. */
+        const char *user = NULL, *user_mantle = NULL;
+        cJSON *mm = NULL;
+        cJSON_ArrayForEach(mm, cJSON_GetObjectItemCaseSensitive(state, "mantles")) {
+          cJSON *r = NULL;
+          cJSON_ArrayForEach(r, vc_mantle_runes(mm)) {
+            if (!strcmp(gstr(r, "glyph"), name)) {
+              user = vc_rune_name(r);
+              user_mantle = vc_mantle_name(mm);
+              break;
+            }
+          }
+          if (user) break;
+        }
+        if (user) {
+          res = res_fail("glyph '%s' is in use by rune '%s' in mantle '%s' — "
+                         "remove or re-glyph its runes first", name, user, user_mantle);
+        } else {
+          cJSON_DeleteItemFromObjectCaseSensitive(declared, name);
+          res = res_make(1);
+          res_line(res, "undeclared glyph '%s'", name);
+          if (vc_glyph_find(m->glyphs, name))
+            res_line(res, "  (the host registration of '%s' is visible again)", name);
+        }
+      }
+    } else {
+      res = res_fail("usage: glyph declare '<json descriptor>' | "
+                     "glyph undeclare <name>   ('glyphs' lists them)");
+    }
+
+  } else if (!strcmp(v, "measure")) {
+    /* measure <ref> [--level L] [--unit U] [--min N] [--max N] [--clear]
+     *
+     * The quantity a MEASURE rune names (SPEC §3.2, §3.3.2). `player -w-> speed`
+     * says the player's speed is 5; what makes that 5 a value rather than a bare
+     * number is the unit, and the unit belongs to the rune `speed` — not to its
+     * glyph, since `health`, `speed` and `strength` share one schema and differ
+     * only in what they measure.
+     *
+     * It sits BESIDE `content`, not in it, for the same reason `placement` does
+     * (§3.2): the core must be able to read it — an attribute assertion whose
+     * unit the core cannot see gives a host back the dimensional analysis it was
+     * meant to get from the graph — and `content` stays opaque. */
+    cJSON *mt = need_mantle(state, &err);
+    if (!mt) {
+      res = err;
+    } else if (a.count < 2) {
+      res = res_fail("usage: measure <ref> [--level nominal|ordinal|interval|ratio] "
+                     "[--unit U] [--min N] [--max N] [--clear]");
+    } else {
+      cJSON *r = vc_mantle_find_rune(mt, a.items[1]);
+      cJSON *gd = r ? vc_glyph_lookup(m, gstr(r, "glyph")) : NULL;
+      if (!r) {
+        res = res_fail("no such rune: %s", a.items[1]);
+      } else if (!gd) {
+        res = res_fail("rune '%s' carries the unregistered glyph '%s' — declare it "
+                       "before annotating what it measures", vc_rune_name(r),
+                       gstr(r, "glyph"));
+      } else if (strcmp(vc_glyph_kind(gd), "measure")) {
+        res = res_fail("'%s' is a %s rune, not a measure — a quantity annotation "
+                       "belongs on the dimension, not on the thing that has an "
+                       "amount of it (declare its glyph with \"kind\":\"measure\")",
+                       vc_rune_name(r), vc_glyph_kind(gd));
+      } else {
+        int clear = 0, writes = 0;
+        cJSON *q = cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(r, "quantity"), 1);
+        if (!cJSON_IsObject(q)) {
+          if (q) cJSON_Delete(q);
+          q = cJSON_CreateObject();
+        }
+        char qerr[256];
+        qerr[0] = 0;
+        for (int i = 2; i < a.count && !res; i++) {
+          if (!strcmp(a.items[i], "--clear")) {
+            clear = 1;
+            writes++;
+          } else if (!strcmp(a.items[i], "--level") && i + 1 < a.count) {
+            cJSON_DeleteItemFromObjectCaseSensitive(q, "level");
+            cJSON_AddStringToObject(q, "level", a.items[++i]);
+            writes++;
+          } else if (!strcmp(a.items[i], "--unit") && i + 1 < a.count) {
+            cJSON_DeleteItemFromObjectCaseSensitive(q, "unit");
+            cJSON_AddStringToObject(q, "unit", a.items[++i]);
+            writes++;
+          } else if ((!strcmp(a.items[i], "--min") || !strcmp(a.items[i], "--max")) &&
+                     i + 1 < a.count) {
+            const char *key = a.items[i] + 2;
+            double d = 0;
+            if (!vc_parse_double(a.items[i + 1], &d)) {
+              res = res_fail("measure: --%s must be a number, got '%s'", key,
+                             a.items[i + 1]);
+            } else {
+              cJSON_DeleteItemFromObjectCaseSensitive(q, key);
+              cJSON_AddNumberToObject(q, key, d);
+              writes++;
+            }
+            i++;
+          } else if (a.items[i][0] != '-') {
+            res = res_fail("measure: unexpected argument '%s'", a.items[i]);
+          }
+        }
+        if (res) {
+          cJSON_Delete(q);
+        } else if (!writes) { /* a bare `measure <ref>` reads */
+          cJSON *cur = cJSON_GetObjectItemCaseSensitive(r, "quantity");
+          char *s = cur ? cJSON_PrintUnformatted(cur) : NULL;
+          res = res_make(1);
+          res_line(res, "%s", s ? s : "null");
+          free(s);
+          res_set_data(res, cur ? cJSON_Duplicate(cur, 1) : cJSON_CreateNull());
+          cJSON_Delete(q);
+        } else if (clear) {
+          cJSON_DeleteItemFromObjectCaseSensitive(r, "quantity");
+          cJSON_Delete(q);
+          res = res_make(1);
+          res_line(res, "cleared the quantity of %s", vc_rune_name(r));
+        } else if (!vc_quantity_validate(q, qerr, sizeof qerr)) {
+          cJSON_Delete(q);
+          res = res_fail("measure: %s", qerr);
+        } else {
+          cJSON_DeleteItemFromObjectCaseSensitive(r, "quantity");
+          cJSON_AddItemToObject(r, "quantity", q);
+          char *s = cJSON_PrintUnformatted(q);
+          res = res_make(1);
+          res_line(res, "%s: %s", vc_rune_name(r), s ? s : "{}");
+          free(s);
+          res_set_data(res, cJSON_Duplicate(q, 1));
+        }
+      }
     }
 
   } else if (!strcmp(v, "set")) {

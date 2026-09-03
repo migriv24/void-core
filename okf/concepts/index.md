@@ -7,6 +7,7 @@ The shared vocabulary every Void Core application inherits.
 * [Holiday](/concepts/holiday.md) - the interface to an external system you don't own
 * [Glyph](/concepts/glyph.md) - a rune's editability type
 * [Tag system](/concepts/tag-system.md) - addressing-by-meaning; the filter grammar
+* [Quantity](/concepts/quantity.md) - what a number is; levels, units, points vs vectors, field vs edge
 * [Dispatcher](/concepts/dispatcher.md) - the one command entry point
 * [Voidscript](/concepts/voidscript.md) - the scripting language over the dispatcher
 * [Domain](/concepts/domain.md) - the target a mantle renders/deploys onto
