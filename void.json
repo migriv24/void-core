@@ -87,6 +87,50 @@
 
   "platforms": ["windows-x64", "macos-universal", "linux-x64"],
 
+  "release": {
+    "version": "0.2.14",
+    "previous": "0.2.13",
+    "change": "compatible",
+    "date": "2026-09-03",
+    "summary": "three rune kinds, the glyph split, declarations that travel, and values on edges",
+    "adds": [
+      "glyph declare / undeclare",
+      "glyphs",
+      "measure",
+      "values",
+      "ls --kind",
+      "state.glyphs",
+      "presentations"
+    ],
+    "behavior_changes": [
+      {
+        "what": "`link --weight` now refuses a non-number. It used to reach atof(), record weight 0.0 -- \"not related at all\" -- and return ok.",
+        "who_is_affected": "any code that depended on that silent zero; it depended on a bug. It matters more now that a weight may be a value: it used to record a wrong-but-plausible strength and would now record the false claim that something's speed is zero."
+      },
+      {
+        "what": "`$(get <ref> --json)` now works. It used to look up a content field literally named `--json` and fail.",
+        "who_is_affected": "anything that branches on that failure."
+      },
+      {
+        "what": "A host that RECONSTRUCTS the state document key by key, rather than round-tripping the document it was given, will silently drop the new top-level `state.glyphs`.",
+        "who_is_affected": "any host that rebuilds the JSON from its own model. The declarations are the part of a document that carries its own schema, so losing them loses the meaning of the runes, not the runes."
+      },
+      {
+        "what": "The undoable slice widened from `mantles + active` to `mantles + active + glyphs`, because declaring a glyph is authored content and takes back like `rune new`.",
+        "who_is_affected": "hosts whose mantles hold a world and who measure undo cost. The cost is O(your type vocabulary), not O(your data)."
+      }
+    ],
+    "read_more": [
+      "SPEC.md",
+      "okf/concepts/glyph.md",
+      "okf/concepts/quantity.md",
+      "okf/log.md",
+      "conformance/cases/18-glyph-declarations.vs",
+      "conformance/cases/19-kinds-and-values.vs",
+      "bindings/python/glyph_declaration_test.py"
+    ]
+  },
+
   "update": {
     "channel": "desktop",
     "side_by_side": true,
