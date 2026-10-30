@@ -3,7 +3,7 @@
   "name": "voidcore",
   "display_name": "Void Core",
   "kind": "runtime",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "license": "MIT",
   "repository": "https://github.com/migriv24/void-core",
   "description": "A host-agnostic engine other applications build on: the rune/mantle/domain model, one command dispatcher, an axis-typed tag system, Voidscript, and the Reduce/Temper/Scry transformation layers, behind a plain C ABI.",
@@ -28,9 +28,16 @@
     {
       "name": "voidpalabra",
       "kind": "runtime",
-      "seam": "c-abi",
+      "seam": "state document + command journal",
       "direction": "inbound",
       "note": "Storage/versioning/sync layer over the core; forced the temper/scry conformance contracts and the constraint that spirit.id is never content-derived."
+    },
+    {
+      "name": "voidrancho",
+      "kind": "runtime",
+      "seam": "state document + command journal",
+      "direction": "inbound",
+      "note": "Planned (founded 2026-10-30): the database layer above the core, pillar B of okf/design/the-transition.md. Stores, indexes and pages state documents and keeps them in step from the journal; every change still enters through the dispatcher."
     },
     {
       "name": "voidunity",
@@ -88,46 +95,30 @@
   "platforms": ["windows-x64", "macos-universal", "linux-x64"],
 
   "release": {
-    "version": "0.2.14",
-    "previous": "0.2.13",
+    "version": "0.2.15",
+    "previous": "0.2.14",
     "change": "compatible",
-    "date": "2026-09-03",
-    "summary": "three rune kinds, the glyph split, declarations that travel, and values on edges",
-    "adds": [
-      "glyph declare / undeclare",
-      "glyphs",
-      "measure",
-      "values",
-      "ls --kind",
-      "state.glyphs",
-      "presentations"
-    ],
+    "date": "2026-10-28",
+    "summary": "an atomic batch is atomic again, and one edit stops costing a scan of the mantle",
+    "adds": [],
     "behavior_changes": [
       {
-        "what": "`link --weight` now refuses a non-number. It used to reach atof(), record weight 0.0 -- \"not related at all\" -- and return ok.",
-        "who_is_affected": "any code that depended on that silent zero; it depended on a bug. It matters more now that a weight may be a value: it used to record a wrong-but-plausible strength and would now record the false claim that something's speed is zero."
+        "what": "A `batch` that fails now rolls back `state.glyphs` too. Since 0.2.14 a batch that failed after a `glyph declare` kept the declaration, so an atomic import could half-happen and runes could then be created against a schema the author had taken back.",
+        "who_is_affected": "anything that relied on a failed batch leaving a declaration behind; it relied on a bug. Importers using --atomic batches get the guarantee they were already promised."
       },
       {
-        "what": "`$(get <ref> --json)` now works. It used to look up a content field literally named `--json` and fail.",
-        "who_is_affected": "anything that branches on that failure."
+        "what": "Resolving a rune ref (`set`, `tag`, `link`, `get`, `rune new`'s duplicate check, ...) is now O(1) from an internal index instead of a scan of the mantle. A 3-commands-per-rune import that took 8.8 s at 10^4 runes takes 0.07 s; `validate` is linear (2.2 s -> 2 ms at 10^4). Answers are unchanged: first rune in document order whose name or id matches.",
+        "who_is_affected": "nobody's results; hosts that worked around slow imports or skipped validate at scale can stop. A host that relied on ref resolution being slow has a timing bug."
       },
       {
-        "what": "A host that RECONSTRUCTS the state document key by key, rather than round-tripping the document it was given, will silently drop the new top-level `state.glyphs`.",
-        "who_is_affected": "any host that rebuilds the JSON from its own model. The declarations are the part of a document that carries its own schema, so losing them loses the meaning of the runes, not the runes."
-      },
-      {
-        "what": "The undoable slice widened from `mantles + active` to `mantles + active + glyphs`, because declaring a glyph is authored content and takes back like `rune new`.",
-        "who_is_affected": "hosts whose mantles hold a world and who measure undo cost. The cost is O(your type vocabulary), not O(your data)."
+        "what": "A `batch` with undo on no longer copies the undoable slice twice: it rolls back from the undo memento the router already took. A one-command batch now costs what the command costs.",
+        "who_is_affected": "no one's results. A single `set` is still O(N) in the memento; that is the reified-undo work, not this release."
       }
     ],
     "read_more": [
-      "SPEC.md",
-      "okf/concepts/glyph.md",
-      "okf/concepts/quantity.md",
       "okf/log.md",
-      "conformance/cases/18-glyph-declarations.vs",
-      "conformance/cases/19-kinds-and-values.vs",
-      "bindings/python/glyph_declaration_test.py"
+      "SPEC.md",
+      "bindings/python/ref_index_test.py"
     ]
   },
 

@@ -65,6 +65,76 @@ remains is integration polish, per the concept pages:
   [dispatcher](/concepts/dispatcher.md) verbs in the core remains (today both are
   host-side holidays)
 
+# BEGIN HERE — the transition (2026-10-30)
+
+**Important, by the author's ruling: development starts with these two pillars.** Rationale
+in [the transition](/design/the-transition.md).
+
+1. **Pillar A — world models.** Shift optimization from LLMs toward JEPA-class models
+   ([world models](/design/world-models.md); track below). First Core work: the verb
+   catalogue as data + `touched` on the journal.
+2. **Pillar B — the database: Void Rancho.** A dedicated library above Core
+   (`../VoidRancho`, OKF founded 2026-10-30). Core's part is the same `touched` change.
+3. **Recorded only:** separating the command language from the raw structure
+   ([the transition](/design/the-transition.md) §5).
+
+# On hold — from the 2026-10-28 inbox
+
+Larger or contract-shaped asks, **held by the author's instruction** while the easy fixes
+shipped as 0.2.15 ([log](/log.md)). Each names who asked; ★ marks a second requester, the
+family's bar for building.
+
+1. **Reified commands with inverses** — O(change) undo instead of the O(slice) memento. One
+   `set` at 10⁵ runes still costs 0.48 s. Void Hormiga (10-25) ★ Void Unity ★ Void Maiz
+   (`replace_state` must drop undo history) ★ [world models](/design/world-models.md) phase 3.
+2. **`save` doubles the document** — `_baseline` is a full copy of `mantles` inside the state,
+   so every saved file and every export carries the database twice. Hormiga proposes a digest
+   or the journal `seq` at save; `revert` would replay instead. Behavior change for
+   `status`/`diff`/`revert` — see also [effect seam](/design/effect-seam-and-session-boundary.md).
+3. **What changed, as data** — `touched` ids on the journal entry, `mutated` in the envelope,
+   `vc_export_mantle`, or a `vc_revision` counter. Hormiga ★ Maiz (built its own conservative
+   revision because "which verbs mutate is Core's to say"). Any new export turns Void Unity's
+   ABI audit red, so new symbols ship together in one deliberate release.
+4. **A verb catalogue as data** — the classification four hand-kept lists encode today
+   (`help`, `is_mutating`, `is_effectful`, `keeps_ref_index`). Needle's tool set ★ Maiz ★
+   world models phase 1. Unblocks (3).
+5. **Graph analysis in C** — Brandes/label propagation live only in Python; Maiz now ships a
+   C++ Leiden. Hormiga asks for a ruling: core or view library.
+6. **Typed ports at the door** — `link --relation i:j` accepts an index past a glyph's
+   declared ports and `validate` says `valid` (Hormiga 09-22; asked of Maiz too, whose port
+   vocabulary it is). Named port relations would also stop a port reorder silently rewiring
+   every database.
+7. **Should Core split** into a pure read-only half and the command language? The author's
+   question, relayed by Hormiga 09-23, with their lean: read-only half, every change through
+   the dispatcher. Same shape world models want.
+8. **Where an act rune's role list lives** — a `roles` key beside `fields`/`kinds`? (Void Maiz
+   Q26; their lean: schema, not presentation.) And Maiz's (b): a renderer should not act on a
+   descriptor's `source`; a schema editor should (undeclare only what was declared).
+9. **A Rust crate and the ABI-stability promise** a `-sys` crate may rely on (Void Jelly
+   10-03). Unity's answer — lenient late binding plus an unbound-export audit — is the
+   template on offer.
+10. **`batch` sub-commands on its journal entry** (Void Palabra, standing since 08-27) ★
+    world models (a batch is a macro-action). And Palabra's `slice` value distinguishing
+    `mantles` from `active`.
+11. **The name "Void Core"** for Latin-OS's kernel — the author's ruling; nothing moves
+    until then.
+12. **Small, outside this repo:** Latin-OS's `void.json` uses `link: "c-abi"`, which Mago's
+    schema rejects (the last `mago doctor` error); a generated `core/sources.cmake` would
+    spare Maiz's Android build hand-syncing Core's file list (offered, not asked); Allomone's
+    `glyph "x"` is an alias for its `kind "x"`, a second door into the `kind` word collision.
+
+# World models track
+
+Direction proposed 2026-10-28 in [world models](/design/world-models.md); **gated on the
+author**. Running models is Void Bicho's; these are only what Core must allow.
+
+1. **Phase 1** — verb catalogue (on-hold 4); `touched` + `mutated` (on-hold 3).
+2. **Phase 2** — `batch --dry`: an exact counterfactual from the memento, no ABI change.
+3. **Phase 3** — reified commands (on-hold 1).
+4. **Phase 4** — cost as data: `validate --goal '<expr>'`, `diff --against <state>`.
+5. **First experiment** (Bicho's to run): a world model *of the dispatcher*, ranked against
+   exact dry-run outcomes, before any world model of a host.
+
 # The open-application track
 
 Direction set 2026-07-04 in [the open application](/design/open-application-design.md);

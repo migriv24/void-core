@@ -2,9 +2,21 @@
 type: Design
 title: Needle fine-tune — a resident micro-agent for Void Core
 description: Plan for synthetic data creation to fine-tune the 26M-param needle function-calling model into a default, on-device NL→dispatcher seam for Void Core applications.
-tags: [status:planned, audience:dev, confidence:exploratory]
-timestamp: 2026-07-13T00:00:00Z
+tags: [status:deprecated, audience:dev, confidence:exploratory]
+timestamp: 2026-10-28T00:00:00Z
 ---
+
+> **Moved (2026-10-28). The plan of record is Void Bicho's
+> `../VoidBicho/okf/design/needle.md`**, on the author's direction of 2026-10-10
+> (relayed by Void Squid): a resident model is *computing*, which the
+> [railguard](/design/what-voidcore-is-not.md) keeps out of the core, and acquiring,
+> running and accounting for a model is Bicho's whole job. Bicho reaches Core through
+> the existing `effect` seam with no change here. **What stays Core's** is what Core
+> owns: the verb catalogue that becomes the model's tool set, the conformance suite
+> that checks its output by running it, and the reserved `agent …` namespace.
+> Upstream has also moved since this page was written (Needle 3: 121M with an n-gram
+> engram, Apache-2.0, telemetry on by default) — Bicho's page has the current facts.
+> This copy is kept unedited below as the July reasoning, not as a plan.
 
 # Needle fine-tune — a resident micro-agent for Void Core
 

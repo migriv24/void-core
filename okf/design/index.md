@@ -6,6 +6,10 @@ the [concepts](/concepts/index.md), absorbed into this bundle (formerly the stan
 settled rationale (`status:current`), some are forward-looking research (`status:planned`).
 When a track matures into contract, it lands in `SPEC.md`.
 
+## The transition (read first, 2026-10-30)
+
+* [The transition](/design/the-transition.md) - **IMPORTANT** — two new pillars (world models; the database, Void Rancho), the four aspects of Core ranked, the command-language split recorded
+
 ## The railguard (read first)
 
 * [What Void Core is NOT](/design/what-voidcore-is-not.md) - the overlay-not-runtime boundary; the drift test
@@ -33,9 +37,11 @@ When a track matures into contract, it lands in `SPEC.md`.
 
 ## Research tracks (planned / north-star)
 
+* [World models — what Core must allow for JEPA-class models](/design/world-models.md) - *(2026-10-28)* the LLM bias is in what is prose vs data, not in the command language; a hybrid exact/learned world model along the pure/effectful line; four additive phases (verb catalogue, effects on the journal, dry-run, reified commands); running models stays Void Bicho's
+
 * [The open application](/design/open-application-design.md) - host/local OKF, the app-instantiation standard, the sandbox surface ladder, builder vs operator seats, engine reuse + mantle capsules (open questions pending)
 * [Voidscript as a DSL](/design/voidscript-dsl.md) - grammar-safe orchestration language (PEL direction)
 * [Context-size optimization](/design/context-optimization.md) - context as a core pillar; RL-ready later
 * [Agent tools, memory, extensions](/design/agent-tools-memory.md) - tool structure, memory, sandbox, extensions
-* [Needle fine-tune — resident micro-agent](/design/needle-finetune.md) - synthetic-data plan for a 26M on-device NL→dispatcher model as a default core component
+* [Needle fine-tune — resident micro-agent](/design/needle-finetune.md) - **moved to Void Bicho** (2026-10-28); kept as the July reasoning. Core keeps the verb catalogue + conformance as the model's tool set and checker
 * [Concept brainstorm (archive)](/design/concept-brainstorm.md) - archived early vocabulary brainstorming

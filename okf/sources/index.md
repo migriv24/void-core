@@ -20,3 +20,13 @@ called its own recollections `verified` would be worse than no folder at all.
 * [WCAG — contrast thresholds](/sources/wcag-contrast.md) - the numbers `theme.py` implements from scratch; the only mechanically checkable source here
 * [Google Cloud — Open Knowledge Format](/sources/google-open-knowledge-format.md) - the format this bundle claims conformance to, and its reference implementation
 * [Pocock — Skills For Real Engineers](/sources/pocock-skills-for-real-engineers.md) - the MIT-licensed skills adapted into `.claude/skills/`; carries a licence obligation
+* [You et al. — A control theory of predictability](/sources/control-theory-predictability.md) - plan-cost on reachable states, not prediction error, governs control; why an exact oracle matters
+* [Göbel & Cheng — JEPAWG bifurcations](/sources/jepawg-bifurcations.md) - models as objects in a latent space
+* [Resani & Shi — Inside-JEPA](/sources/inside-jepa.md) - relations ground through inverse dynamics; a mantle is that dataset
+* [Qin et al. — ONNX-Net](/sources/onnx-net.md) - canonical graph text as a universal representation, read by a non-generative encoder
+* [Zhang et al. — Frozen in a Frame](/sources/frozen-in-a-frame.md) - a snapshot carries configuration, not rate
+* [LeCun — A Path Towards Autonomous Machine Intelligence](/sources/lecun-autonomous-machine-intelligence.md) - the six-module architecture JEPA sits in
+* [Assran et al. — V-JEPA 2](/sources/v-jepa-2.md) - the MIT-licensed video encoder and action-conditioned world model
+* [LeJEPA and LeWorldModel](/sources/lejepa-and-leworldmodel.md) - SIGReg, linear identifiability, a 15M world model trainable on one GPU
+* [ARC-Bench](/sources/arc-bench.md) - closed-loop success hides broken action ranking
+* [Slot-JEPA and Causal-JEPA](/sources/slot-jepa.md) - object identity across time is the hard part; runes get it free

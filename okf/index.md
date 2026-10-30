@@ -13,6 +13,12 @@ Honesty convention: every concept is tagged `status:current` (built & in the cod
 `status:planned` (designed, not built), or `status:deprecated`. A concept may not
 claim `current` without a `resource:` link to the code that backs it.
 
+# Pillars — read first (the transition, 2026-10-30)
+
+* [The transition](/design/the-transition.md) - **IMPORTANT.** The author's ruling: optimization shifts from LLMs toward JEPA-class world models; the database becomes a pillar (a dedicated library above Core, **Void Rancho**); the four aspects of Void Core ranked, raw structure first; separating the command language recorded, not started
+* [World models](/design/world-models.md) - **pillar A**: what Core must allow for JEPA-class models; the research behind the ruling
+* Void Rancho - **pillar B**: the database library, its own bundle at `../VoidRancho/okf`
+
 # Planned work
 
 * [Roadmap](/roadmap.md) - index of planned concepts + the near-term build order (dev-only)
@@ -66,3 +72,4 @@ radius. All `confidence:asserted` (recalled, not yet checked) — see [sources/]
 * [WCAG — contrast](/sources/wcag-contrast.md) - the numbers `theme.py` implements
 * [Google Cloud — OKF](/sources/google-open-knowledge-format.md) - the format itself
 * [Pocock — Skills For Real Engineers](/sources/pocock-skills-for-real-engineers.md) - the adapted skills (MIT)
+* Ten JEPA / world-model papers (2022–2026) behind the [world-models design](/design/world-models.md) — listed in [sources/](/sources/index.md)
