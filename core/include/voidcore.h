@@ -112,7 +112,8 @@ VC_API void vc_destroy(VC_Manager *m);
  * journal on, attributed, replayable) and a WORLD manager (both off) side by
  * side. Turning undo off does not change what any command does; it only means
  * `undo`/`redo` will fail, and they say so rather than reporting an empty stack.
- * `batch` stays atomic either way — it rolls back from its own saved copy.
+ * `batch` stays atomic either way — it rolls back from the memento taken for it,
+ * or from its own copy with undo off; never from the undo stack.
  *
  * This is a switch, not a fix: the memento is still O(slice) when it is taken.
  * The fix is reified commands (okf/design/command-architecture.md), which two

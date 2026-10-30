@@ -108,7 +108,7 @@ cJSON *need_mantle(cJSON *state, cJSON **err) {
 /* Resolve a <ref> into a borrowed array of rune pointers (caller frees the array,
  * not the runes). "@<expr>" selects every rune matching the filter (SPEC §4/§5);
  * a plain name/id selects the single match (0 or 1). */
-int collect_targets(cJSON *mt, const char *ref, cJSON ***out) {
+int collect_targets(VC_Manager *m, cJSON *mt, const char *ref, cJSON ***out) {
   cJSON **arr = NULL;
   int n = 0, cap = 0;
   cJSON *runes = vc_mantle_runes(mt);
@@ -125,7 +125,7 @@ int collect_targets(cJSON *mt, const char *ref, cJSON ***out) {
       }
     }
   } else {
-    r = vc_mantle_find_rune(mt, ref);
+    r = vc_find_rune(m, mt, ref);
     if (r) {
       arr = (cJSON **)malloc(sizeof(cJSON *));
       arr[0] = r;

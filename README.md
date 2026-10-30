@@ -11,7 +11,7 @@ The reference implementation is the **C core** (`core/`, ~5k lines of plain
 C11 + vendored cJSON) exposing a pure C ABI (`core/include/voidcore.h`), so any
 language binds to it. A Python ctypes binding (`bindings/python/voidcore.py`) is
 the primary consumption path today; the JS prototype (`src/`) is kept as the
-conformance oracle. Current version: **0.2.12**.
+conformance oracle. Current version: **0.2.15**.
 
 **Standalone project.** Void Core links nothing and expects no sibling checkout
 beside it: a clean clone builds and passes every suite on its own. The traffic

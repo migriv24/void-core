@@ -4,7 +4,7 @@ title: SPEC.md — the normative contract
 description: The indexed entry point to SPEC.md, Void Core's normative language-agnostic contract, mapping each section to the concept that describes it.
 resource: SPEC.md
 tags: [status:current, audience:dev, audience:library, confidence:verified, reference]
-timestamp: 2026-08-31T00:00:00Z
+timestamp: 2026-10-28T00:00:00Z
 ---
 
 **`SPEC.md`** (at the repo root) is Void Core's **normative, language-agnostic
@@ -26,7 +26,7 @@ seam (optional per binding) · **[impl unless marked]** = mandatory verbs except
 | §3 Data model | spirit, rune, glyph, mantle, domain, binding, links | [rune](/concepts/rune.md) · [glyph](/concepts/glyph.md) · [mantle](/concepts/mantle.md) · [domain](/concepts/domain.md) · [links](/concepts/links.md) |
 | §4 Identity & reference rules | frozen id + editable name; ref resolution | [rune](/concepts/rune.md) |
 | §5 Tag system `[impl]` | tag membership + the filter grammar | [tag system](/concepts/tag-system.md) |
-| §6 Dispatcher contract `[impl]` | the one command entry point + result shape; mutation invariants, incl. **host-controlled undo** (`vc_set_undo`/`vc_set_undo_depth`, on by default — a memento of a document is cheap, a memento of a world is the world); §6.1 = **argument quoting** — the tokenizer's five rules, the law `split(quote(v)) == [v]`, and the exported codec; §6.2 = **pure vs effectful + the command journal** — which verbs cross the holiday boundary, and every mutating command reified as data | [dispatcher](/concepts/dispatcher.md) |
+| §6 Dispatcher contract `[impl]` | the one command entry point + result shape; mutation invariants, incl. **host-controlled undo** (`vc_set_undo`/`vc_set_undo_depth`, on by default — a memento of a document is cheap, a memento of a world is the world; a failed `batch` restores all three keys of the slice, `glyphs` included, since 0.2.15); §6.1 = **argument quoting** — the tokenizer's five rules, the law `split(quote(v)) == [v]`, and the exported codec; §6.2 = **pure vs effectful + the command journal** — which verbs cross the holiday boundary, and every mutating command reified as data | [dispatcher](/concepts/dispatcher.md) |
 | §7 Verb catalog | verb semantics incl. the transformation verbs (seam); §7.1 = the POSIX alias surface (argument-aware desugarings, root-`ls`, `cd /`) | [dispatcher](/concepts/dispatcher.md) · [reduce](/concepts/reduce.md) / [temper](/concepts/temper.md) / [scry](/concepts/scry.md) |
 | §8 Voidscript `[impl]` | the scripting language over the dispatcher; **a CR is a line terminator, not content** (so a CRLF-authored script means what it reads as); §8.1 = **quoting and expansion** — the rules that keep a value in a transcript from becoming syntax | [voidscript](/concepts/voidscript.md) |
 | §9 Adapter seam & logging `[impl]` | the I/O boundary + log spine | [holiday](/concepts/holiday.md) · [logging & debug](/concepts/logging-debug.md) |

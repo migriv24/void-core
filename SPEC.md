@@ -658,8 +658,11 @@ construction, because each `rune new` copies every rune already present
 has made, so the switch is the host's, exactly as the §6.2 journal's is. Turning
 undo off drops the frames already held (an undo frame, unlike a journal entry, is
 not an artifact anyone can still read). `batch` **remains atomic** with undo off:
-its rollback is its own saved copy, not the undo stack. Turning it off does not
-change what any command does.
+its rollback image is the undoable slice as it stood before the batch — the
+memento the router took for it when undo is on, its own copy when undo is off —
+and never the undo stack. A failed batch restores all three keys of the slice,
+`glyphs` included (0.2.15; before it, a batch that failed after `glyph declare`
+kept the declaration). Turning undo off does not change what any command does.
 
 **The view slice:** `rune.placement` (§3.2) is carved out of the undo slice.
 `place` (§7.2) mutates it and is logged on the mutation spine (§9), but pushes

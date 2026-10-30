@@ -86,6 +86,27 @@ static int is_rewind(const vc_argv *a) {
   return !strcmp(v, "undo") || !strcmp(v, "redo");
 }
 
+/* May this command use the ref index (mantle.c)? The index borrows its keys
+ * from the runes' spirit strings and holds pointers to the runes, so it is only
+ * sound across a command that never removes, renames or replaces a rune, nor
+ * swaps the `mantles` array out from under it (undo, revert, batch rollback).
+ *
+ * This is a list of verbs KNOWN to be safe, read off their bodies, and not a
+ * list of the dangerous ones — an unlisted verb, including one added next
+ * release, simply runs with the index dropped around it. Getting this list
+ * wrong in the permissive direction is a dangling pointer; in the strict
+ * direction it is a scan. `rune new` is the one writer here: it appends, and
+ * appending keeps every existing answer true (vc_rune_index_add). */
+static int keeps_ref_index(const vc_argv *a) {
+  static const char *const safe[] = {"set",   "setjson", "facet", "tag",
+                                      "link",  "unlink",  "place", "measure",
+                                      "get",   "cat",     "validate", NULL};
+  const char *v = a->items[0];
+  for (int i = 0; safe[i]; i++)
+    if (!strcmp(v, safe[i])) return 1;
+  return !strcmp(v, "rune") && a->count >= 2 && !strcmp(a->items[1], "new");
+}
+
 /* ── the router ── */
 cJSON *vc_dispatch_json(VC_Manager *m, const char *command) {
   vc_argv a = vc_argv_split(command);
@@ -125,8 +146,9 @@ cJSON *vc_dispatch_json(VC_Manager *m, const char *command) {
   /* `m->undo_on` is the host's switch (vc_set_undo). With it off no memento is
    * taken at all — which is the whole point, since the memento is a copy of the
    * entire undoable slice and that is what makes a world-sized `mantles`
-   * quadratic to build. `batch` atomicity is unaffected: it rolls back from its
-   * own saved copy (verbs_script.c), not from the undo stack. */
+   * quadratic to build. `batch` atomicity is unaffected: it rolls back from this
+   * memento when there is one and from its own copy when there is not
+   * (verbs_script.c) — never from the undo stack. */
   if (mutates && top && m->undo_on) {
     snap = vc_undo_capture(m, command);
     have_snap = 1;
@@ -151,12 +173,29 @@ cJSON *vc_dispatch_json(VC_Manager *m, const char *command) {
   if (top) m->effect_fired = 0;
   if (journaling) pre = vc_id_snapshot(state);
 
+  /* The ref index is live only inside an index-safe verb, and dropped on both
+   * sides of any other — so a `batch` of `set`s shares one index, and a
+   * `rune rm` between two of them forces a rebuild rather than a stale answer.
+   * `prev_live` restores the enclosing command's setting (batch, script). */
+  int safe = keeps_ref_index(&a);
+  int prev_live = m->rix_live;
+  if (!safe) vc_rune_index_drop(m);
+  m->rix_live = safe;
+  /* Offer this command's memento to `batch` as its rollback image (one copy of
+   * the slice, not two). Only the batch this frame was taken FOR may use it,
+   * so the pointer is cleared before any sub-command runs (verbs_script.c). */
+  m->pending_preimage = have_snap ? &snap : NULL;
+
   res = vc_verbs_query(m, state, a, v);
   if (!res) res = vc_verbs_edit(m, state, a, v);
   if (!res) res = vc_verbs_graph(m, state, a, v);
   if (!res) res = vc_verbs_lifecycle(m, state, a, v);
   if (!res) res = vc_verbs_script(m, state, a, v);
   if (!res) res = res_fail("unknown verb: %s (try 'help')", v);
+
+  m->pending_preimage = NULL;
+  if (!safe) vc_rune_index_drop(m);
+  m->rix_live = prev_live;
 
 
   int ok = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(res, "ok"));

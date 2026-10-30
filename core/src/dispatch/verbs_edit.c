@@ -208,10 +208,14 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
         cJSON *r = vc_rune_new(a.items[2], a.items[3]);
         cJSON_ReplaceItemInObjectCaseSensitive(r, "content",
                                                vc_glyph_default_content(gd));
-        if (!vc_mantle_add_rune(mt, r)) {
+        /* vc_mantle_add_rune's rule (a non-empty name must not already answer
+         * as a ref), asked of the index so an import is not O(N) per rune. */
+        if (a.items[3][0] && vc_find_rune(m, mt, a.items[3])) {
           cJSON_Delete(r);
           res = res_fail("rune name exists: %s", a.items[3]);
         } else {
+          cJSON_AddItemToArray(vc_mantle_runes(mt), r);
+          vc_rune_index_add(m, mt, r);
           res = res_make(1);
           res_line(res, "created rune '%s' (glyph %s)", a.items[3], a.items[2]);
           res_set_data(res, cJSON_CreateString(a.items[3]));
@@ -221,7 +225,7 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       const char *ref = a.items[2];
       if (ref[0] == '@') { /* remove every match (collect names first) */
         cJSON **tg;
-        int n = collect_targets(mt, ref, &tg);
+        int n = collect_targets(m, mt, ref, &tg);
         if (n == 0) {
           res = res_fail("no rune matches: %s", ref);
         } else {
@@ -431,7 +435,7 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       res = res_fail("usage: measure <ref> [--level nominal|ordinal|interval|ratio] "
                      "[--unit U] [--min N] [--max N] [--clear]");
     } else {
-      cJSON *r = vc_mantle_find_rune(mt, a.items[1]);
+      cJSON *r = vc_find_rune(m, mt, a.items[1]);
       cJSON *gd = r ? vc_glyph_lookup(m, gstr(r, "glyph")) : NULL;
       if (!r) {
         res = res_fail("no such rune: %s", a.items[1]);
@@ -520,7 +524,7 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       res = res_fail("usage: set <ref> <field> <value>");
     } else {
       cJSON **tg;
-      int n = collect_targets(mt, a.items[1], &tg);
+      int n = collect_targets(m, mt, a.items[1], &tg);
       if (n == 0) {
         res = res_fail("no rune matches: %s", a.items[1]);
       } else {
@@ -546,7 +550,7 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       res = res_fail("usage: setjson <ref> <field> <json-value>");
     } else {
       cJSON **tg;
-      int n = collect_targets(mt, a.items[1], &tg);
+      int n = collect_targets(m, mt, a.items[1], &tg);
       if (n == 0) {
         res = res_fail("no rune matches: %s", a.items[1]);
       } else {
@@ -579,7 +583,7 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
         res = res_fail("not a facet: %s", a.items[2]);
       } else {
         cJSON **tg;
-        int n = collect_targets(mt, a.items[1], &tg);
+        int n = collect_targets(m, mt, a.items[1], &tg);
         if (n == 0) {
           res = res_fail("no rune matches: %s", a.items[1]);
         } else {
@@ -603,7 +607,7 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       res = res_fail("usage: tag <ref> +add -remove ...");
     } else {
       cJSON **tg;
-      int n = collect_targets(mt, a.items[1], &tg);
+      int n = collect_targets(m, mt, a.items[1], &tg);
       if (n == 0) {
         res = res_fail("no rune matches: %s", a.items[1]);
       } else {
@@ -662,7 +666,7 @@ cJSON *vc_verbs_edit(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
     } else if (a.count < 2) {
       res = res_fail("usage: place <rune> [<x> <y> [<z>] | --clear]");
     } else {
-      cJSON *r = vc_mantle_find_rune(mt, a.items[1]);
+      cJSON *r = vc_find_rune(m, mt, a.items[1]);
       /* Collect coordinate tokens past any `--flag` (a `$(…)` capture appends
        * --json; same pass-through convention as `ls`). Negative coords ("-5")
        * are single-dash and still count. */

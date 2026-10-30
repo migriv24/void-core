@@ -4,7 +4,7 @@ title: Links
 description: Loose, non-reactive connections between runes (and, later, mantles/holidays) — the passive substrate under layout edges, bindings, and tag references; a weight may be a strength or an attribute value.
 resource: core/src/model/mantle.c
 tags: [status:current, audience:dev, audience:library, confidence:verified, foundation]
-timestamp: 2026-09-03T00:00:00Z
+timestamp: 2026-10-28T00:00:00Z
 ---
 
 A **link** is a loose connection between two entities. It is directed (or not),

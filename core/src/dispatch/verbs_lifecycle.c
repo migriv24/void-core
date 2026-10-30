@@ -79,17 +79,17 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
       cJSON *problems = cJSON_CreateArray();
       cJSON *runes = vc_mantle_runes(mt);
       char b[256];
+      /* "Some EARLIER rune has this name", asked of a set instead of by
+       * rescanning the prefix: the nested loop was O(N^2) and ran for over ten
+       * minutes at 5x10^4 runes (Void Hormiga, 2026-10-25). Names only — the
+       * ref index answers name-OR-id, which is a different question. */
+      vc_smap seen = {0};
       cJSON *r = NULL;
       cJSON_ArrayForEach(r, runes) {
         const char *nm = vc_rune_name(r);
-        cJSON *r2 = NULL;
-        cJSON_ArrayForEach(r2, runes) {
-          if (r2 == r) break;
-          if (!strcmp(vc_rune_name(r2), nm)) {
-            snprintf(b, sizeof b, "duplicate name: %s", nm);
-            cJSON_AddItemToArray(problems, cJSON_CreateString(b));
-            break;
-          }
+        if (vc_smap_put_new(&seen, nm, r) == 0) {
+          snprintf(b, sizeof b, "duplicate name: %s", nm);
+          cJSON_AddItemToArray(problems, cJSON_CreateString(b));
         }
         const char *g = gstr(r, "glyph");
         /* Either registry answers (SPEC §3.3.3) — a DECLARED glyph in the
@@ -100,13 +100,14 @@ cJSON *vc_verbs_lifecycle(VC_Manager *m, cJSON *state, vc_argv a, const char *v)
           cJSON_AddItemToArray(problems, cJSON_CreateString(b));
         }
       }
+      vc_smap_free(&seen);
       cJSON *layout = cJSON_GetObjectItemCaseSensitive(mt, "layout");
       cJSON *e = NULL;
       cJSON_ArrayForEach(e, cJSON_GetObjectItemCaseSensitive(layout, "edges")) {
         const char *ends[2] = {gstr(e, "from"), gstr(e, "to")};
         const char *side[2] = {"from", "to"};
         for (int k = 0; k < 2; k++) {
-          if (vc_mantle_find_rune(mt, ends[k])) continue;   /* resolves here: fine */
+          if (vc_find_rune(m, mt, ends[k])) continue;   /* resolves here: fine */
           /* SPEC §3.7 — an unresolved endpoint has TWO causes, and they used to
            * read identically. A DANGLE is legitimate: links tolerate
            * not-yet-created knowledge, and a host that streams chunks in and out

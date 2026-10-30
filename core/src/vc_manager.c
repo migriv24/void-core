@@ -177,6 +177,7 @@ void vc_destroy(VC_Manager *m) {
   if (!m) return;
   vc_undo_clear(m);
   vc_journal_clear_all(m);
+  vc_smap_free(&m->rix);
   if (m->glyphs) cJSON_Delete(m->glyphs);
   if (m->log) cJSON_Delete(m->log);
   if (m->state) cJSON_Delete(m->state);

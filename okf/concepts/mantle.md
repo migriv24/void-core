@@ -4,7 +4,7 @@ title: Mantle
 description: A group of runes over a domain, plus the relationship graph and rules between them.
 resource: core/src/model/mantle.c
 tags: [status:current, audience:library, audience:dev, confidence:asserted, foundation]
-timestamp: 2026-07-01T00:00:00Z
+timestamp: 2026-10-28T00:00:00Z
 ---
 
 A **mantle** is a set of [runes](/concepts/rune.md) over a
@@ -23,6 +23,12 @@ passive part; the rewrite system is the active part layered on top.
 
 - The data shape, rune CRUD with name-reference repointing, the `layout` graph and
   `rules` are *stored and inspected* in the [C core](/components/c-core.md).
+- **Resolving a ref is O(1)** since 0.2.15: the manager keeps a name-or-id → rune index for
+  the mantle being addressed, built on demand and returning exactly what a front-to-back scan
+  would (the first rune in document order). It is an answer cache, never a second source of
+  truth — dropped around every command not known to be index-safe, because its keys are the
+  runes' own strings. Before it, a 3-commands-per-rune import was superquadratic (10⁴ runes:
+  8.8 s → 0.07 s). Rune order stays preserved-but-not-semantic (SPEC §4).
 - The rule **reducer** that *executes* rewrites — deliberately deferred at first
   ("model it as a net now, reduce it later") — is now built as
   [Reduce](/concepts/reduce.md): the `reduce` verb builds the active mantle's net from

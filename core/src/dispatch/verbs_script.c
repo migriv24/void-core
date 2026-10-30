@@ -64,8 +64,21 @@ cJSON *vc_verbs_script(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
         if (cmds) cJSON_Delete(cmds);
         res = res_fail("batch expects a JSON array of command strings");
       } else {
-        cJSON *save_m = cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(state, "mantles"), 1);
-        cJSON *save_a = cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(state, "active"), 1);
+        /* The rollback image is the undoable slice — mantles, active AND glyphs
+         * (SPEC §2, §6). Until 0.2.15 it was the first two only, so a batch that
+         * failed after a `glyph declare` kept the declaration: an "atomic"
+         * import that half-happened. When the router already took the undo
+         * memento for this batch, that memento IS this pre-image, and copying
+         * the slice a second time doubled the cost of every batch (Void
+         * Hormiga, 2026-10-25). Only with undo off do we pay for our own. */
+        vc_undo_frame *pre = m->pending_preimage;
+        m->pending_preimage = NULL; /* ours alone; never a sub-command's */
+        cJSON *save_m = NULL, *save_a = NULL, *save_g = NULL;
+        if (!pre) {
+          save_m = cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(state, "mantles"), 1);
+          save_a = cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(state, "active"), 1);
+          save_g = cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(state, "glyphs"), 1);
+        }
         int prev = m->suppress_undo;
         m->suppress_undo = 1; /* one undo frame for the whole batch, not N */
         int failed = -1, i = 0;
@@ -89,12 +102,20 @@ cJSON *vc_verbs_script(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
         }
         m->suppress_undo = prev;
         if (failed >= 0) { /* atomic: roll the model back */
+          if (pre) { /* take the memento's copies; the router frees the rest */
+            save_m = pre->mantles;
+            save_a = pre->active;
+            save_g = pre->glyphs;
+            pre->mantles = pre->active = pre->glyphs = NULL;
+          }
           cJSON_ReplaceItemInObjectCaseSensitive(state, "mantles", save_m);
           cJSON_ReplaceItemInObjectCaseSensitive(state, "active", save_a);
+          if (save_g) cJSON_ReplaceItemInObjectCaseSensitive(state, "glyphs", save_g);
           res = res_fail("batch rolled back at command %d: %s", failed, failmsg);
         } else {
-          cJSON_Delete(save_m);
-          cJSON_Delete(save_a);
+          if (save_m) cJSON_Delete(save_m);
+          if (save_a) cJSON_Delete(save_a);
+          if (save_g) cJSON_Delete(save_g);
           res = res_make(1);
           res_line(res, "batch applied %d command(s)", cJSON_GetArraySize(cmds));
         }

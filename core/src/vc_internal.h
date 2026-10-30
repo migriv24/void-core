@@ -15,7 +15,7 @@
 
 /* The ONE version string — vc_version() and the `version` verb both return it.
  * (Bump here; 0.2.2/0.2.3 drifted because it was duplicated in vc_manager.c.) */
-#define VC_VERSION_STR "0.2.14"
+#define VC_VERSION_STR "0.2.15"
 
 /* An undo frame: a snapshot of the undoable slice of state
  * (mantles + active + glyphs), labelled by the command that produced it (§6). v0 is memento-based; the
@@ -54,6 +54,23 @@ typedef struct {
   int count;
 } vc_id_set;
 
+/* A string -> pointer map: open addressing, keys BORROWED (never copied or
+ * freed). First insert wins, which is what lets it answer "the first rune in
+ * document order that matches" exactly as a front-to-back scan does. */
+typedef struct {
+  const char *key;
+  void *val;
+} vc_smap_slot;
+typedef struct {
+  vc_smap_slot *slots;
+  size_t cap, used;
+} vc_smap;
+void vc_smap_free(vc_smap *s);
+void vc_smap_reset(vc_smap *s); /* empty it, keep the allocation */
+void *vc_smap_get(const vc_smap *s, const char *key);
+/* 1 inserted, 0 already present (first insert wins), -1 out of memory */
+int vc_smap_put_new(vc_smap *s, const char *key, void *val);
+
 /* The manager owns exactly one state document (SPEC §2) + undo/redo stacks. */
 struct VC_Manager {
   cJSON *state;
@@ -83,6 +100,21 @@ struct VC_Manager {
    * UPGRADE a command's classification pure -> effectful, never downgrade one
    * (see is_effectful() in dispatch.c). */
   int effect_fired;
+  /* The ref index (mantle.c, vc_find_rune): name-or-id -> rune for ONE mantle.
+   * Resolving a ref used to walk the rune list, so every command at N runes paid
+   * O(N) in cache misses, and a 3-commands-per-rune import was superquadratic
+   * (Void Hormiga, 2026-10-25: 20 000 runes took 128 s). The keys are borrowed
+   * from the runes' own spirit strings, so the index is only trustworthy while
+   * nothing removes, renames or replaces a rune. The router therefore decides,
+   * per command, whether the index may be used at all (`rix_live`) and drops it
+   * around every command it has not been told is safe (dispatch.c). */
+  cJSON *rix_mantle; /* the mantle `rix` describes, or NULL = not built */
+  vc_smap rix;
+  int rix_live;      /* nonzero only while an index-safe verb is running */
+  /* The undo memento dispatch took for the command now running, offered to
+   * `batch` as its rollback image so an atomic batch does not copy the slice a
+   * second time. NULL whenever no memento exists (undo off, or a sub-command). */
+  vc_undo_frame *pending_preimage;
 };
 
 /* ── state document (model/store, currently in vc_manager.c) ──────────────── */
@@ -186,6 +218,13 @@ cJSON *vc_mantle_new(const char *name, const char *domain);
 const char *vc_mantle_name(const cJSON *mantle);
 cJSON *vc_mantle_runes(cJSON *mantle);
 cJSON *vc_mantle_find_rune(cJSON *mantle, const char *ref);
+/* The same answer as vc_mantle_find_rune, from the manager's ref index when the
+ * running command is index-safe (O(1)), by a scan otherwise. Hot paths use this. */
+cJSON *vc_find_rune(struct VC_Manager *m, cJSON *mantle, const char *ref);
+/* Append a rune to the index after it was appended to `mantle` (no-op unless
+ * the index currently describes that mantle). */
+void vc_rune_index_add(struct VC_Manager *m, cJSON *mantle, cJSON *rune);
+void vc_rune_index_drop(struct VC_Manager *m); /* forget it; rebuilt on demand */
 int vc_mantle_add_rune(cJSON *mantle, cJSON *rune);    /* 0 if duplicate name */
 int vc_mantle_remove_rune(cJSON *mantle, const char *ref);
 /* Add or update a layout edge (a "link") from->to: relation label, weight, and

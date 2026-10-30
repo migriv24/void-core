@@ -1,6 +1,7 @@
 /* mantle.c — runes over a domain, plus reserved layout/rules. SPEC §3.4.
  * layout.edges and rules are persisted from day one but not yet consumed. */
 #include "vc_internal.h"
+#include <stdlib.h>
 #include <string.h>
 
 static const char *estr(const cJSON *o, const char *k) {
@@ -56,6 +57,97 @@ cJSON *vc_mantle_find_rune(cJSON *mantle, const char *ref) {
     if (vc_rune_matches_ref(r, ref)) return r;
   }
   return NULL;
+}
+
+/* ── vc_smap: string -> pointer, open addressing, borrowed keys ── */
+
+static size_t smap_hash(const char *s) { /* FNV-1a */
+  size_t h = (size_t)1469598103934665603ULL;
+  for (; *s; s++) h = (h ^ (unsigned char)*s) * (size_t)1099511628211ULL;
+  return h;
+}
+
+static vc_smap_slot *smap_slot(vc_smap_slot *slots, size_t cap, const char *key) {
+  size_t i = smap_hash(key) & (cap - 1);
+  while (slots[i].key && strcmp(slots[i].key, key)) i = (i + 1) & (cap - 1);
+  return &slots[i];
+}
+
+void vc_smap_free(vc_smap *s) {
+  free(s->slots);
+  s->slots = NULL;
+  s->cap = s->used = 0;
+}
+
+void vc_smap_reset(vc_smap *s) {
+  if (s->slots) memset(s->slots, 0, s->cap * sizeof *s->slots);
+  s->used = 0;
+}
+
+void *vc_smap_get(const vc_smap *s, const char *key) {
+  if (!s->cap || !key) return NULL;
+  return smap_slot(s->slots, s->cap, key)->val;
+}
+
+int vc_smap_put_new(vc_smap *s, const char *key, void *val) {
+  if (!key) return 0;
+  if ((s->used + 1) * 10 >= s->cap * 7) { /* keep load under 0.7 */
+    size_t ncap = s->cap ? s->cap * 2 : 64;
+    vc_smap_slot *ns = (vc_smap_slot *)calloc(ncap, sizeof *ns);
+    if (!ns) return -1;
+    for (size_t i = 0; i < s->cap; i++)
+      if (s->slots[i].key) *smap_slot(ns, ncap, s->slots[i].key) = s->slots[i];
+    free(s->slots);
+    s->slots = ns;
+    s->cap = ncap;
+  }
+  vc_smap_slot *sl = smap_slot(s->slots, s->cap, key);
+  if (sl->key) return 0; /* first insert wins */
+  sl->key = key;
+  sl->val = val;
+  s->used++;
+  return 1;
+}
+
+/* ── the ref index ──
+ * A rune answers a ref by its name OR its id (vc_rune_matches_ref), and the scan
+ * returns the FIRST match in document order. Inserting each rune's name and then
+ * its id, in document order, with first-insert-wins, makes the lookup return
+ * exactly that rune — including the odd document where one rune's name is
+ * another's id. The index is an answer cache, never a second source of truth. */
+
+/* 0 if out of memory — the caller then drops the index, because an index
+ * missing a key would answer "no such rune" for a rune that exists. */
+static int rix_insert(VC_Manager *m, cJSON *rune) {
+  return vc_smap_put_new(&m->rix, vc_rune_name(rune), rune) >= 0 &&
+         vc_smap_put_new(&m->rix, vc_rune_id(rune), rune) >= 0;
+}
+
+void vc_rune_index_drop(VC_Manager *m) {
+  if (!m) return;
+  m->rix_mantle = NULL;
+  vc_smap_reset(&m->rix);
+}
+
+cJSON *vc_find_rune(VC_Manager *m, cJSON *mantle, const char *ref) {
+  if (!m || !m->rix_live || !mantle || !ref) return vc_mantle_find_rune(mantle, ref);
+  if (m->rix_mantle != mantle) {
+    vc_rune_index_drop(m);
+    cJSON *r = NULL;
+    cJSON_ArrayForEach(r, vc_mantle_runes(mantle)) {
+      if (!rix_insert(m, r)) {
+        vc_rune_index_drop(m);
+        return vc_mantle_find_rune(mantle, ref);
+      }
+    }
+    m->rix_mantle = mantle;
+  }
+  return (cJSON *)vc_smap_get(&m->rix, ref);
+}
+
+void vc_rune_index_add(VC_Manager *m, cJSON *mantle, cJSON *rune) {
+  if (m && m->rix_mantle && m->rix_mantle == mantle && !rix_insert(m, rune))
+    vc_rune_index_drop(m);
 }
 
 int vc_mantle_add_rune(cJSON *mantle, cJSON *rune) {

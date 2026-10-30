@@ -189,7 +189,7 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       res_line(res, "mantle '%s': %d rune(s)", vc_mantle_name(mt),
                cJSON_GetArraySize(vc_mantle_runes(mt)));
     } else {
-      cJSON *r = vc_mantle_find_rune(mt, a.items[1]);
+      cJSON *r = vc_find_rune(m, mt, a.items[1]);
       if (!r) {
         res = res_fail("no such rune: %s", a.items[1]);
       } else {
@@ -230,7 +230,7 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
     } else if (a.count < 2) {
       res = res_fail("usage: get <ref> [field]");
     } else {
-      cJSON *r = vc_mantle_find_rune(mt, a.items[1]);
+      cJSON *r = vc_find_rune(m, mt, a.items[1]);
       if (!r) {
         res = res_fail("no such rune: %s", a.items[1]);
       } else {
@@ -263,7 +263,7 @@ cJSON *vc_verbs_query(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
     } else if (a.count < 2) {
       res = res_fail("usage: cat <ref>");
     } else {
-      cJSON *r = vc_mantle_find_rune(mt, a.items[1]);
+      cJSON *r = vc_find_rune(m, mt, a.items[1]);
       if (!r) {
         res = res_fail("no such rune: %s", a.items[1]);
       } else {

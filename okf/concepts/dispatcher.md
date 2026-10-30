@@ -4,7 +4,7 @@ title: Dispatcher
 description: The one command entry point the CLI, GUI, and script runner all call; every mutation is undoable and dirty-tracked.
 resource: core/src/dispatch/dispatch.c
 tags: [status:current, audience:library, audience:dev, confidence:asserted, foundation]
-timestamp: 2026-08-28T00:00:00Z
+timestamp: 2026-10-28T00:00:00Z
 ---
 
 The **dispatcher** is Void Core's single surface: one router that every face (CLI,
@@ -111,7 +111,15 @@ both the [C core](/components/c-core.md) (`args.c`) and the JS oracle.
   undo off no frame is taken, and `undo`/`redo` fail *saying they are disabled*
   rather than reporting an empty stack, because a script running inside such a
   host did not strike that bargain. `batch` stays atomic either way: its rollback
-  is its own saved copy, not the undo stack.
+  image is the slice as it stood before the batch — the memento already taken
+  for it when undo is on (so a batch no longer copies the slice twice), its own
+  copy when undo is off — never the undo stack. All three keys roll back,
+  `glyphs` included, since 0.2.15.
+- The router decides, per command, whether the [mantle](/concepts/mantle.md)'s ref index may
+  be used (0.2.15). The safe set is an **allowlist** read off verb bodies — verbs that never
+  remove, rename or replace a rune — so a verb added later runs with a scan until someone
+  checks it. Wrong in the permissive direction is a dangling pointer; wrong in the strict one
+  is only slower.
 - Dirty-tracking compares against a `_baseline` snapshot (`status`/`diff`/`revert`).
 - `batch` applies a list of commands **atomically** (rollback on any failure) as **one
   undo frame** — which is how the seam gives a multi-write transform pass

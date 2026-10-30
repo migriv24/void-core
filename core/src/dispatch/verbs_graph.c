@@ -42,8 +42,8 @@ cJSON *vc_verbs_graph(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       if (!res) {
         /* canonicalize to rune names when they exist; otherwise keep the raw ref
          * (a dangling link to not-yet-created knowledge). */
-        cJSON *rf = vc_mantle_find_rune(mt, a.items[1]);
-        cJSON *rt = vc_mantle_find_rune(mt, a.items[2]);
+        cJSON *rf = vc_find_rune(m, mt, a.items[1]);
+        cJSON *rt = vc_find_rune(m, mt, a.items[2]);
         const char *fn = rf ? vc_rune_name(rf) : a.items[1];
         const char *tn = rt ? vc_rune_name(rt) : a.items[2];
         vc_mantle_add_edge(mt, fn, tn, rel, weight, directed);
@@ -72,8 +72,8 @@ cJSON *vc_verbs_graph(VC_Manager *m, cJSON *state, vc_argv a, const char *v) {
       const char *rel = NULL;
       for (int i = 3; i < a.count; i++)
         if (!strcmp(a.items[i], "--relation") && i + 1 < a.count) rel = a.items[++i];
-      cJSON *rf = vc_mantle_find_rune(mt, a.items[1]);
-      cJSON *rt = vc_mantle_find_rune(mt, a.items[2]);
+      cJSON *rf = vc_find_rune(m, mt, a.items[1]);
+      cJSON *rt = vc_find_rune(m, mt, a.items[2]);
       const char *fn = rf ? vc_rune_name(rf) : a.items[1];
       const char *tn = rt ? vc_rune_name(rt) : a.items[2];
       int n = vc_mantle_remove_edge(mt, fn, tn, rel);
