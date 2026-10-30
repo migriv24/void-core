@@ -108,7 +108,7 @@ than in the core. Two reasons it's worth doing soon:
    a glyph (`character`), a verb (`say <name>`), and some state (lines, mood). If
    the extension mechanism can cleanly add a Jacob that any app inherits, the
    mechanism is sound.
-2. **There's prior art: Click.** BiologyManager's *Click LaFont* is already a
+2. **There's prior art: the mascot.** BiologyManager's site mascot is already a
    character — implemented bespoke as a "mantle on top of" each site. A **character
    extension generalizes Click** into a reusable, core-level thing. So this isn't a
    toy detour; it's the abstraction Click was gesturing at, done right. Build the

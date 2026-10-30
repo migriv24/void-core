@@ -111,7 +111,7 @@ A group of runes over a domain, plus the rules between them (Codex §2, §3).
 ```
 
 - **One website can carry multiple mantles.** The biology site is one mantle;
-  **Click LaFont** is a second mantle laid on top (Codex §2). Void Core treats
+  **a mascot character** is a second mantle laid on top (Codex §2). Void Core treats
   them as separate mantles over the same domain, stacked.
 - `layout.edges` and `rules` are **stored from day one** but in v1 the manager
   may rely on explicit `placement` and rendered code. The solver/rule-engine
@@ -426,8 +426,8 @@ there are exactly **9** concepts, fixed by the assignment):
 - **The linked external sites** — the 9 labs (all locally accessible; see the
   hub's `PORTFOLIO-MAP.md` for paths). Edit their text/media through the same
   manager.
-- **Click's reactions per site** — what Click LaFont says on each page. →
-  Click is its **own mantle** over the same domain; each reaction is a
+- **The mascot's reactions per site** — what the mascot says on each page. →
+  the mascot is its **own mantle** over the same domain; each reaction is a
   `dialogueLine` rune. (Lives in `public/click-overlay.js` `window.CLICK_CONFIG`
   / per-site config.)
 - **A mini character engine** — Click's config/sprites as `characterConfig`

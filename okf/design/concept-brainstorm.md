@@ -97,7 +97,7 @@ first test bed: it exercises the engine-shaped core the website managers never d
    interact** (open: or do mantles carry their own inter-mantle rules?). This is
    net composition: the third mantle is the rule table for the boundary. It implies
    mantles are **higher-order / recursive** — a mantle whose runes are mantles.
-   (Click LaFont on the biology site is the prior art: today that interaction is
+   (The mascot on the biology site is the prior art: today that interaction is
    `bindings`; the "third mantle" idea promotes bindings to a mantle.)
 
 ---

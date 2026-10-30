@@ -60,3 +60,12 @@ package-lock.json
 # message belongs in okf/log.md, a conformance case, and the code — where the
 # 2026-09-02 `related` report from Void Hormiga ended up.
 MESSAGE_FOR_*.md
+
+# Never published (Void Mago's Iscariot): secrets, correspondence between
+# agents, and the private-terms list.
+.env
+git_secret.txt
+KEEP_HIDDEN.txt
+*.pem
+REPORT_FROM_*.md
+.private-terms
